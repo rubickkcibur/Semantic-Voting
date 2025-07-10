@@ -11,7 +11,10 @@ from accelerate.logging import get_logger
 from accelerate.utils import set_seed, gather_object
 import logging
 import tqdm
-from data_processor.processor_registers import load_custom_dataset, get_metrics
+from data_processor.processor_registers import load_custom_dataset, get_metrics, REPORT_METRICS
+import jsonlines
+import json
+import evaluate
 # from peft import PeftModel
 
 '''
@@ -127,6 +130,7 @@ def evaluation_main():
     )
     prompts = [test_dataset["test"][i]["prompt"] for i in range(len(test_dataset["test"]))]
     metric_func = get_metrics(data_args.dataset_name)
+    reported_metrics = REPORT_METRICS[data_args.dataset_name]
 
 
     def prepare_prompts(prompts, tokenizer, batch_size=16):
@@ -184,47 +188,52 @@ def evaluation_main():
             torch.cuda.empty_cache()
         results = [results]  # transform to list, otherwise gather_object() will not collect correctly
     results_gathered = gather_object(results)
+    
+    accelerator.wait_for_everyone()
+    del modelL
+    torch.cuda.empty_cache()
+
     if accelerator.is_main_process:
         total_results = []
         for r in results_gathered:
             total_results += r["outputs"]
         total_results = [txt.split(tokenizerL.eos_token)[0] for txt in total_results]
-
-        rewards = []
+        metrics = metric_func(total_results, test_dataset["test"])
         length = len(total_results)
-        for i in range(length):
-            data_params = test_dataset["test"][i].copy()
-            data_params.pop("prompt")
-            r = metric_func(total_results[i], **data_params)
-            rewards.append(r)
-        avg_reward = sum(rewards) / length if length > 0 else 0.0
-        # acc = METRIC[data_args.dataset_name](total_results, answers, tokenizerL) if "wmt" in data_args.dataset_name else METRIC[data_args.dataset_name](total_results, answers)
-        logger.info(f"acc is {avg_reward}")
+        avg_reported_metrics = {
+            key: sum([metric[key] for metric in metrics])/len(metrics)
+            for key in reported_metrics
+        }
+        logger.info(f"reported metrics:\n{avg_reported_metrics}")
         # dump results
         dump_path = training_args.output_dir if (training_args.output_dir is not None and len(training_args.output_dir) > 0) else model_args.model_name_or_path
-        with open(os.path.join(dump_path, "debug_{}.txt".format(data_args.dataset_name)), "w",
-                  encoding="utf8") as f:
+        with jsonlines.open(os.path.join(dump_path, "debug_{}.jsonl".format(data_args.dataset_name)), "w") as f:
             for i in range(length):
-                f.write("Prompt: " + str(test_dataset["test"][i]["prompt"]))
-                f.write("\n")
-                f.write("Pred: " + str(total_results[i]))
-                f.write("\n")
-                f.write("-----------------------------")
-                f.write("\n")
-        with open(os.path.join(dump_path, "acc_{}.txt".format(data_args.dataset_name)), "w",
+                f.write({
+                    "prompt": test_dataset["test"][i]["prompt"],
+                    "pred": total_results[i],
+                    **(metrics[i])
+                })
+        with open(os.path.join(dump_path, "reported_{}.json".format(data_args.dataset_name)), "w",
                   encoding="utf8") as f:
-            f.write(str(avg_reward) + "\n")
+            json.dump(avg_reported_metrics, f)
 
 
 if __name__ == "__main__":
     # 注意seed，原设置是没有do_sample的
-    seed = os.environ.get("SEED", 114514)
-    seed = int(seed)
-    print("================set global random seed to {}================".format(seed))
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+    seed = 42
     random.seed(seed)
+    np.random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+    torch.use_deterministic_algorithms(True)
+    #Enable CUDNN deterministic mode
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
     evaluation_main()
 

@@ -21,13 +21,16 @@ import transformers
 from transformers import set_seed
 from transformers.trainer_utils import get_last_checkpoint
 
-from open_r1.configs import GRPOConfig, GRPOScriptArguments
+from open_r1.configs import DPOConfig,  DPOScriptArguments
 from open_r1.my_rewards import get_reward_funcs
 from open_r1.utils import get_dataset, get_model, get_tokenizer
 from open_r1.utils.callbacks import get_callbacks
 from open_r1.utils.wandb_logging import init_wandb_training
 from data_processor.processor_registers import load_custom_dataset
-from trl import GRPOTrainer, ModelConfig, TrlParser, get_peft_config
+from trl import GRPOTrainer, ModelConfig, TrlParser, get_peft_config, DPOTrainer
+import random
+import numpy as np
+import torch
 
 
 logger = logging.getLogger("MainLogger")
@@ -84,9 +87,10 @@ def main(script_args, training_args, model_args):
     ##############
     logger.info("*** Loading model ***")
     model = get_model(model_args, training_args)
+    ref_model = get_model(model_args, training_args)
 
     # Get reward functions from the registry
-    reward_funcs = get_reward_funcs(script_args)
+    # reward_funcs = get_reward_funcs(script_args)
 
     # # Format into conversation
     # def make_conversation(example, prompt_column: str = script_args.dataset_prompt_column):
@@ -106,26 +110,15 @@ def main(script_args, training_args, model_args):
     # for split in dataset:
     #     if "messages" in dataset[split].column_names:
     #         dataset[split] = dataset[split].remove_columns("messages")
-    dataset = load_custom_dataset(
-        script_args.dataset_name,
-        tokenizer=tokenizer,
-        cot=False,
-        apply_chat_template=True,
+    dataset = datasets.load_dataset("json", data_files=script_args.dataset_name)
+    
+    trainer = DPOTrainer(
+        model = model,
+        ref_model = ref_model,
+        args = training_args,
+        train_dataset = dataset[script_args.dataset_train_split],
+        processing_class = tokenizer
     )
-    #############################
-    # Initialize the GRPO trainer
-    #############################
-    trainer = GRPOTrainer(
-        model=model,
-        reward_funcs=reward_funcs,
-        args=training_args,
-        train_dataset=dataset["train"],
-        eval_dataset=(dataset["test"] if training_args.eval_strategy != "no" else None),
-        peft_config=get_peft_config(model_args),
-        callbacks=get_callbacks(training_args, model_args),
-        processing_class=tokenizer,
-    )
-
     ###############
     # Training loop
     ###############
@@ -136,6 +129,7 @@ def main(script_args, training_args, model_args):
     elif last_checkpoint is not None:
         checkpoint = last_checkpoint
     train_result = trainer.train(resume_from_checkpoint=checkpoint)
+
     metrics = train_result.metrics
     metrics["train_samples"] = len(dataset[script_args.dataset_train_split])
     trainer.log_metrics("train", metrics)
@@ -155,7 +149,7 @@ def main(script_args, training_args, model_args):
     # Save everything else on main process
     kwargs = {
         "dataset_name": script_args.dataset_name,
-        "tags": ["open-r1"],
+        "tags": ["SRLM"],
     }
     if trainer.accelerator.is_main_process:
         trainer.create_model_card(**kwargs)
@@ -182,6 +176,20 @@ def main(script_args, training_args, model_args):
 
 
 if __name__ == "__main__":
-    parser = TrlParser((GRPOScriptArguments, GRPOConfig, ModelConfig))
+    parser = TrlParser((DPOScriptArguments, DPOConfig, ModelConfig))
     script_args, training_args, model_args = parser.parse_args_and_config()
+
+    random.seed(training_args.seed)
+    np.random.seed(training_args.seed)
+    os.environ["PYTHONHASHSEED"] = str(training_args.seed)
+    torch.manual_seed(training_args.seed)
+    torch.cuda.manual_seed(training_args.seed)
+    torch.cuda.manual_seed_all(training_args.seed)
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+    torch.use_deterministic_algorithms(True)
+    #Enable CUDNN deterministic mode
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
     main(script_args, training_args, model_args)

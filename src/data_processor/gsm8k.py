@@ -25,6 +25,7 @@ SPECIAL_TOKEN = {
 }
 
 GROUND_KEYS = {"answer"}
+REPORT_METRICS = {"acc"}
 
 def load_data(cot: bool = False):
     def format_answer(ground: str):

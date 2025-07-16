@@ -20,7 +20,7 @@ class VLLMActor:
             trust_remote_code = True,
             dtype = "bfloat16",
             seed = args.seed,
-            gpu_memory_utilization = 0.7
+            gpu_memory_utilization = 0.9
         )
     def generate(self, prompts, sampling_params):
         return self.llm.generate(prompts, sampling_params)
@@ -139,13 +139,20 @@ if __name__ == "__main__":
     parser.add_argument(
         "--seed",
         type=int,
-        default=114514,
-        help="The random seed for reproducibility (default: 114514)",
+        default=42,
+        help="The random seed for reproducibility (default: 42)",
     )
     args = parser.parse_args()
 
-    seed = args.seed
-    seed = int(seed)
+    seed = int(args.seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.cuda.manual_seed(seed)
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+    torch.use_deterministic_algorithms(True)
+    #Enable CUDNN deterministic mode
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)

@@ -34,12 +34,25 @@ def extract_sentence_pairs(path):
             return ret
         else:
             return None
-    with jsonlines.open(path, "r") as f:
-        for item in f:
-            assert "'\nPlease think about how to translate step by step." in item["prompt"]
-            prompt = item["prompt"].split("'\nPlease think about how to translate step by step.")[0].strip()
+        
+    def extract_prompt(txt, path):
+        if "cnn_dailymail" in path:
+            assert "'\nPlease give your thoughtful summary." in txt
+            prompt = txt.split("'\nPlease give your thoughtful summary.")[0].strip()
+            assert "Here is the news report:\n'" in prompt
+            prompt = prompt.split("Here is the news report:\n'")[-1].strip()
+            return prompt
+        else:
+            assert "'\nPlease think about how to translate step by step." in txt
+            prompt = txt.split("'\nPlease think about how to translate step by step.")[0].strip()
             assert "sentence is: '" in prompt
             prompt = prompt.split("sentence is: '")[-1].strip()
+            return prompt
+
+
+    with jsonlines.open(path, "r") as f:
+        for item in f:
+            prompt = extract_prompt(item["prompt"], path)
             candidates = item["outputs"]
             preds = [extract_pred(candidate) for candidate in candidates]
             extracted_data.append({

@@ -14,6 +14,9 @@ def get_tokenizer(model_args: ModelConfig, training_args: SFTConfig | GRPOConfig
         trust_remote_code=model_args.trust_remote_code,
     )
     tokenizer.padding_side = "left"  # Set padding side to left for causal language models
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
 
     if training_args.chat_template is not None:
         tokenizer.chat_template = training_args.chat_template

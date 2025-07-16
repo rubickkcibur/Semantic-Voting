@@ -16,6 +16,7 @@ import seaborn as sns
 import hdbscan
 from scipy.stats import kendalltau, spearmanr
 from datasets import load_dataset
+from bleurt_pytorch import BleurtConfig, BleurtForSequenceClassification, BleurtTokenizer
 
 MACLAB_NAS_NAME = "maclabcv2"
 GLOBAL_SEED = 42
@@ -379,24 +380,20 @@ torch.backends.cudnn.benchmark = False
 #         return ret
 #     else:
 #         return None
-model = mt5_model.MT5ForRegression.from_pretrained("/mnt/{}/rubickjiang/proj_storage/huggingface_models/metricx-24-hybrid-large-v2p6-bfloat16".format(MACLAB_NAS_NAME), torch_dtype=torch.bfloat16)
+
+config = BleurtConfig.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/BLEURT-20')
+model = BleurtForSequenceClassification.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/BLEURT-20')
+tokenizer = BleurtTokenizer.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/BLEURT-20')
 model.to("cuda:0")
 model.eval()
-tokenizer = transformers.AutoTokenizer.from_pretrained("google/mt5-xl", trust_remote_code=True)
-tokenizer.padding_side = "left"
-
-sample = "source: " + "Deutsche Landwirte und Lokführer schüchtern deutschen Unternehmern ein" + " candidate: " + "Train drivers and german farmers are fearing Germany's bosses"
-encodings = tokenizer(
-    [sample],
-    max_length=512,
-    truncation=True,
-    padding="longest",
-    return_tensors="pt"
-).to("cuda:0")
+references = ["Harry Potter star Daniel Radcliffe gets £20M fortune as he turns 18 Monday .\nYoung actor says he has no plans to fritter his cash away .\nRadcliffe's earnings from first five Potter films have been held in trust fund ."]
+candidates = ["None"]
 with torch.no_grad():
-    outputs = model(**encodings)
-    scores = outputs.predictions.detach().cpu().float().numpy().tolist()
-    print(scores)
+    encodings = tokenizer(references, candidates, return_tensors='pt', padding="longest").to("cuda:0")
+    scores = model(**encodings).logits.flatten().tolist()
+print(scores)
+
+
 quit()
 # chosen_score = 0
 # reject_score = 0

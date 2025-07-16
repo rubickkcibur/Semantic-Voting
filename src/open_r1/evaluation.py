@@ -114,7 +114,11 @@ def evaluation_main():
         model_max_length=training_args.model_max_length,
         use_fast=False,
         padding_side="left")
-    tokenizerL.pad_token_id = tokenizerL.eos_token_id
+    
+    if tokenizerL.pad_token is None:
+        logger.warning("Pad token is None, setting pad token to eos token")
+        tokenizerL.pad_token = tokenizerL.eos_token
+        tokenizerL.pad_token_id = tokenizerL.eos_token_id
 
     # terminators = [
     #     tokenizerL.eos_token_id,

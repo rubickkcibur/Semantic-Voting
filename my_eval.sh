@@ -13,13 +13,12 @@ export MACLAB_NAS_NAME="maclabcv2"
 export TORCH_USE_CUDA_DSA=1
 # export CUDA_VISIBLE_DEVICES=0
 # what matters: model_name_or_path, peft_model_path, eval_data_path, per_device_eval_batch_size(fixed)
-export SEED=114514
 accelerate launch --config_file "/mnt/${MACLAB_NAS_NAME}/rubickjiang/codes/accelerate_config/config_acc.yaml" src/open_r1/evaluation.py \
-    --model_name_or_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Qwen2.5-1.5B-DPO-wmt24pp_de-5-2-05beta" \
+    --model_name_or_path "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-1.5B-Instruct" \
     --tokenizer_path "" \
     --output_dir "" \
     --mode "chat" \
-    --dataset_name "wmt24pp_de" \
+    --dataset_name "cnn_dailymail" \
     --bf16 True \
     --few_shot_cot False \
     --per_device_eval_batch_size 16 \

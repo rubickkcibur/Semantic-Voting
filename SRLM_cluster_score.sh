@@ -15,9 +15,9 @@ export TORCH_USE_CUDA_DSA=1
 # what matters: model_name_or_path, peft_model_path, eval_data_path, per_device_eval_batch_size(fixed)
 export SEED=42
 python src/SRLM/cluster_score.py \
-    --candidate_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/wmt24pp_de_output_64.jsonl" \
-    --output_path_scored_file "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/wmt24pp_de_scored.jsonl" \
-    --output_path_dpo_file "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/wmt24pp_de_dpo.jsonl" \
+    --candidate_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/cnn_dailymail_output_64.jsonl" \
+    --output_path_scored_file "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/cnn_dailymail_scored.jsonl" \
+    --output_path_dpo_file "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/cnn_dailymail_dpo.jsonl" \
     --min_cluster_size 5 \
     --min_samples 2 \
     --filter_length 5 \

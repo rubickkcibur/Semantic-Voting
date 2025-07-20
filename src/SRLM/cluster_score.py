@@ -36,9 +36,9 @@ def extract_sentence_pairs(path):
             return None
         
     def extract_prompt(txt, path):
-        if "cnn_dailymail" in path:
-            assert "'\nPlease give your thoughtful summary." in txt
-            prompt = txt.split("'\nPlease give your thoughtful summary.")[0].strip()
+        if "cnn_dailymail" in path or "xsum" in path:
+            assert "'\nPlease give your summary." in txt
+            prompt = txt.split("'\nPlease give your summary.")[0].strip()
             assert "Here is the news report:\n'" in prompt
             prompt = prompt.split("Here is the news report:\n'")[-1].strip()
             return prompt

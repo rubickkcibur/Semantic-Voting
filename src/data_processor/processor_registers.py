@@ -1,4 +1,4 @@
-from data_processor import gsm8k, wmt24pp_zh, wmt24pp_de, wmt24pp_fr, wmt19_zh, wmt24pp_ru, wmt24pp_es, cnn_dailymail
+from data_processor import gsm8k, wmt24pp_zh, wmt24pp_de, wmt24pp_fr, wmt19_zh, wmt24pp_ru, wmt24pp_es, cnn_dailymail, xsum
 from transformers import PreTrainedTokenizer
 
 def load_custom_dataset(dataset_name: str, tokenizer: PreTrainedTokenizer = None, cot: bool = False, apply_chat_template: bool = False):
@@ -11,6 +11,7 @@ def load_custom_dataset(dataset_name: str, tokenizer: PreTrainedTokenizer = None
         "wmt24pp_ru": wmt24pp_ru.load_data,
         "wmt24pp_es": wmt24pp_es.load_data,
         "cnn_dailymail": cnn_dailymail.load_data,
+        "xsum": xsum.load_data,
     }
     if dataset_name not in dataset_registers:
         raise ValueError(f"Dataset {dataset_name} is not registered.")
@@ -41,6 +42,7 @@ def get_metrics(dataset_name: str):
         "wmt24pp_ru": wmt24pp_ru.metric,
         "wmt24pp_es": wmt24pp_es.metric,
         "cnn_dailymail": cnn_dailymail.metric,
+        "xsum": xsum.metric,
     }
     if dataset_name not in metrics_registers:
         raise ValueError(f"Dataset {dataset_name} is not registered.")
@@ -55,4 +57,5 @@ REPORT_METRICS = {
     "wmt24pp_ru": wmt24pp_ru.REPORT_METRICS,
     "wmt24pp_es": wmt24pp_es.REPORT_METRICS,
     "cnn_dailymail": cnn_dailymail.REPORT_METRICS,
+    "xsum": xsum.REPORT_METRICS,
 }

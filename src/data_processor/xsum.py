@@ -97,7 +97,7 @@ def metric(output_text, kwargs_list):
     logger.info("Calculating RougeL scores...")
     for pred, ref in zip(preds, refs):
         if pred is None or len(pred) <= 0:
-            total_results.append({"rougeL": 0})
+            total_results.append({"rougeL": 0, "bleu": 0})
         else:
             comp_result = dict()
             bleu_results = bleu_metric.compute(predictions=[pred], references=[ref])

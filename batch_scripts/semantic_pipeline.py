@@ -30,7 +30,7 @@ def compute_cluster_scores(base_model_name, dataset_name):
         "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--output_path_scored_file", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--output_path_dpo_file", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
-        "--min_cluster_size", "3",
+        "--min_cluster_size", "6",
         "--min_samples", "2",
         "--filter_length", "5",
         "--seed", "42"
@@ -47,7 +47,7 @@ def train(base_model_name, dataset_name):
         params = yaml.safe_load(f)
     params["model_name_or_path"] = "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name)
     params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
-    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/models/{}-DPO-{}-3-2".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
+    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/models/{}-DPO-{}-6-2".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmpfile:
         yaml.dump(params, tmpfile, allow_unicode=True)
         temp_file_name = tmpfile.name
@@ -67,7 +67,7 @@ def evaluate(base_model_name, dataset_name):
     command = [
         "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
         "src/open_r1/evaluation.py",
-        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/models/{}-DPO-{}-3-2".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/models/{}-DPO-{}-6-2".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--output_dir", "",
         "--mode", "chat",
@@ -93,17 +93,20 @@ def define_system_vars():
 if __name__ == "__main__":
     # Example usage
     for base_model_name in [
+        "Llama-3.2-1B-Instruct",
         # "Qwen2.5-1.5B-Instruct", 
-        # "Llama-3.2-3B-Instruct", 
+        "Llama-3.2-3B-Instruct", 
         # "Qwen2.5-3B-Instruct", 
-        "Meta-Llama-3-8B-Instruct"]:
+        "Meta-Llama-3-8B-Instruct",
+        # "Qwen2.5-7B-Instruct"
+    ]:
         for dataset_name in [
-            "wmt24pp_de", 
-            "wmt24pp_zh", 
-            "wmt24pp_fr", 
-            "wmt24pp_ru",
-            "wmt24pp_es" 
-            # "xsum"
+            # "wmt24pp_de", 
+            # "wmt24pp_zh", 
+            # "wmt24pp_fr", 
+            # "wmt24pp_ru",
+            # "wmt24pp_es" 
+            "pubmed_summary"
         ]:
             try:
                 define_system_vars()

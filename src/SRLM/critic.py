@@ -21,7 +21,7 @@ class VLLMActor:
             trust_remote_code = True,
             dtype = "bfloat16",
             seed = args.seed,
-            gpu_memory_utilization = 0.7
+            gpu_memory_utilization = 0.9
         )
     def generate(self, prompts, sampling_params):
         return self.llm.generate(prompts, sampling_params)
@@ -49,8 +49,11 @@ def start_generation(args, n_workers = 8):
                     "output": output
                 })
 
-    pattern = "Review the user's prompts and the corresponding response using the additive 5-point scoring system described below. Points are accumulated based on the satisfaction of each criterion:\n- Add 1 point if the response is relevant and provides some information related to the user's inquiry, even if it is incomplete or contains some irrelevant content.\n- Add another point if the response addresses a substantial portion of the user's question, but does not completely resolve the query or provide a direct answer.\n- Award a third point if the response answers the basic elements of the user's question in a useful way, regardless of whether it seems to have been written by an AI Assistant or if it has elements typically found in blogs or search results.\n- Grant a fourth point if the response is clearly written from an AI Assistant's perspective, addressing the user's question directly and comprehensively, and is well-organized and helpful, even if there is slight room for improvement in clarity, conciseness or focus.\n- Bestow a fifth point for a response that is impeccably tailored to the user's question by an AI Assistant, without extraneous information, reflecting expert knowledge, and demonstrating a high-quality, engaging, and insightful answer.\n<User_prompt>{}</User_prompt>\n<response>{}</response>\nAfter examining the user's prompts and the response:\n- Briefly justify your total score, up to 100 words.\n- Conclude with the score using the format: \"Score: <total points>\" (e.g. \"Score: 4\") \nRemember to assess from the AI Assistant perspective, utilizing your self knowledge as necessary. To evaluate the response in alignment with this additive scoring model, we'll systematically attribute points based on the outlined criteria."
+    pattern = "Review the user's prompts and the corresponding response using the additive 5-point scoring system described below. Points are accumulated based on the satisfaction of each criterion:\n- Add 1 point if the response is relevant and provides some information related to the user's inquiry, even if it is incomplete or contains some irrelevant content.\n- Add another point if the response addresses a substantial portion of the user's question, but does not completely resolve the query or provide a direct answer.\n- Award a third point if the response answers the basic elements of the user's question in a useful way, regardless of whether it seems to have been written by an AI Assistant or if it has elements typically found in blogs or search results.\n- Grant a fourth point if the response is clearly written from an AI Assistant's perspective, addressing the user's question directly and comprehensively, and is well-organized and helpful, even if there is slight room for improvement in clarity, conciseness or focus.\n- Bestow a fifth point for a response that is impeccably tailored to the user's question by an AI Assistant, without extraneous information, reflecting expert knowledge, and demonstrating a high-quality, engaging, and insightful answer.\n<User_prompt>\n{}\n</User_prompt>\n<response>\n{}\n</response>\nAfter examining the user's prompts and the response:\n- Briefly justify your total score, up to 100 words.\n- Conclude with the score using the format: \"Score: <total points>\" (e.g. \"Score: 4\") \nRemember to assess from the AI Assistant perspective, utilizing your self knowledge as necessary. To evaluate the response in alignment with this additive scoring model, we'll systematically attribute points based on the outlined criteria."
+    # pattern = "Review a user's prompts and the corresponding response using the 5-point scoring system. Scoring 1 represents the worst and scoring 5 means the best.\nHere is the prompt-response pair:\n<User_prompt>\n{}\n</User_prompt>\n<response>\n{}\n</response>\nConclude with the score using the format: \"Score: <total points>\" (e.g. \"Score: 4\") \nRemember to assess from the AI Assistant perspective, utilizing your self knowledge as necessary."
     inputs = [pattern.format(qa["prompt"], qa["output"]) for qa in qa_pairs]
+    inputs = [[dict(role="user", content=inp)] for inp in inputs]
+    inputs = [tokenizer.apply_chat_template(inp, tokenize=False) for inp in inputs]
     
     data_chunks = split_data(inputs, n_workers)
 
@@ -58,6 +61,7 @@ def start_generation(args, n_workers = 8):
     sampling_params = SamplingParams(
         n = 1,
         temperature = 0,
+        # top_p = 0.9,
         max_tokens = args.max_new_tokens, 
         seed = args.seed,
     )
@@ -75,21 +79,50 @@ def start_generation(args, n_workers = 8):
         if matches:
             score = matches[0].strip()
             return int(score) if score.isdigit() else None
+        
     scores = [extract_score(result.outputs[0].text) for result in final_results]
-    scores = [0 if score is None else score for score in scores]  # Replace None with 0
-    with jsonlines.open(args.candidates_path, "r") as fr, jsonlines.open(args.candidates_path + "_scored", "w") as fw:
+    debug_results = [result.outputs[0].text for result in final_results]
+    scores = [-1 if score is None else score for score in scores]  # Replace None with 0
+    all_objs = []
+    with jsonlines.open(args.candidates_path, "r") as fr, jsonlines.open(args.scored_path, "w") as fw:
         score_indx = 0
         for obj in fr:
             prompt = obj["prompt"]
             outputs = obj["outputs"]
             batch_scores = scores[score_indx:score_indx + len(outputs)]
+            batch_debug_results = debug_results[score_indx:score_indx + len(outputs)]
             score_indx += len(outputs)
-            fw.write({
+            obj = {
                 "prompt": prompt,
                 "outputs": outputs,
-                "scores": batch_scores
-            })
-    os.rename(args.candidates_path + "_scored", args.candidates_path)
+                "scores": batch_scores,
+                "debug_results": batch_debug_results
+            }
+            all_objs.append(obj)
+            fw.write(obj)
+
+    def make_contrast_pair(obj):
+        prompt = obj["prompt"]
+        outputs = obj["outputs"]
+        scores = obj["scores"]
+        max_score = max(scores)
+        if max_score < 0:
+            return None
+        chosen_id = scores.index(max_score)
+        chosen = outputs[chosen_id]
+        rej_score = min([1e6 if s < 0 else s for s in scores])
+        rej_id = scores.index(rej_score)
+        rejected = outputs[rej_id]
+        return {
+            "prompt": prompt,
+            "chosen": chosen,
+            "rejected": rejected,
+        }
+    with jsonlines.open(args.dpo_path, "w") as fw:
+        for obj in all_objs:
+            pair = make_contrast_pair(obj)
+            if pair is not None:
+                fw.write(pair)
 
 
 
@@ -109,12 +142,6 @@ if __name__ == "__main__":
         help="The tokenizer path to use for generation",
     )
     parser.add_argument(
-        "--output_dir",
-        type=str,
-        default=None,
-        help="The output directory to save the results",
-    )
-    parser.add_argument(
         "--mode",
         type=str,
         default="chat",
@@ -125,6 +152,18 @@ if __name__ == "__main__":
         type=str,
         default=None,
         help="The name of the dataset to use for generation",
+    )
+    parser.add_argument(
+        "--scored_path",
+        type=str,
+        default=None,
+        help="The path to store self-scored candidates",
+    )
+    parser.add_argument(
+        "--dpo_path",
+        type=str,
+        default=None,
+        help="The path to store self-scored dpo candidates",
     )
     parser.add_argument(
         "--few_shot_cot",
@@ -159,18 +198,24 @@ if __name__ == "__main__":
     parser.add_argument(
         "--seed",
         type=int,
-        default=114514,
+        default=42,
         help="The random seed for reproducibility (default: 114514)",
     )
     args = parser.parse_args()
 
-    seed = args.seed
-    seed = int(seed)
+    seed = int(args.seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    torch.cuda.manual_seed(seed)
+    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+    torch.use_deterministic_algorithms(True)
+    #Enable CUDNN deterministic mode
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
     random.seed(seed)
-    if args.output_dir is not None and len(args.output_dir) > 0:
-        os.makedirs(args.output_dir, exist_ok=True)
+
     start_generation(args, n_workers = 8)
         

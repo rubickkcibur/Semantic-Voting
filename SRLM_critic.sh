@@ -13,17 +13,18 @@ export MACLAB_NAS_NAME="maclabcv2"
 export TORCH_USE_CUDA_DSA=1
 # export CUDA_VISIBLE_DEVICES=0
 # what matters: model_name_or_path, peft_model_path, eval_data_path, per_device_eval_batch_size(fixed)
-export SEED=114514
+export SEED=42
 python src/SRLM/critic.py \
-    --model_name_or_path "/mnt/${MACLAB_NAS_NAME}/rubickjiang/proj_storage/huggingface_models/Qwen2.5-1.5B-Instruct" \
+    --model_name_or_path "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-1.5B-Instruct" \
     --tokenizer_path "" \
-    --output_dir "/mnt/${MACLAB_NAS_NAME}/rubickjiang/codes/open-r1/data/SR_candidates" \
     --mode "chat" \
-    --candidates_path "/mnt/${MACLAB_NAS_NAME}/rubickjiang/codes/open-r1/data/SR_candidates/wmt_output.jsonl" \
+    --candidates_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-1.5B-Instruct/wmt24pp_zh_output_64.jsonl" \
+    --scored_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-1.5B-Instruct/wmt24pp_zh_self_scored.jsonl" \
+    --dpo_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-1.5B-Instruct/wmt24pp_zh_self_dpo.jsonl" \
     --few_shot_cot False \
     --batch_size 4 \
     --return_sequences 1 \
-    --max_model_len 2048 \
+    --max_model_len 3076 \
     --max_new_tokens 512 \
     --seed $SEED
 exit 0

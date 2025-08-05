@@ -1,0 +1,30 @@
+#!/bin/bash
+#SBATCH -o /aifs4su/rubickjiang/logs/job.%j.out.log
+#SBATCH --error /aifs4su/rubickjiang/logs/job.%j.err.log
+#SBATCH -p batch
+#SBATCH -J test_eval
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=6
+#SBATCH --gres=gpu:8
+#SBATCH -c 32
+export CUDA_DEVICE_MAX_CONNECTIONS=1
+export MACLAB_NAS_NAME="maclabcv2"
+
+export TORCH_USE_CUDA_DSA=1
+# export CUDA_VISIBLE_DEVICES=0
+# what matters: model_name_or_path, peft_model_path, eval_data_path, per_device_eval_batch_size(fixed)
+export SEED=42
+accelerate launch --config_file "/mnt/${MACLAB_NAS_NAME}/rubickjiang/codes/accelerate_config/config_acc.yaml" src/SRLM/record_loss.py \
+    --model_name_or_path "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-7B-Instruct" \
+    --tokenizer_path "" \
+    --mode "chat" \
+    --candidates_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-7B-Instruct/wmt24pp_zh_output_64.jsonl" \
+    --scored_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-7B-Instruct/wmt24pp_zh_entropy_scored.jsonl" \
+    --dpo_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-7B-Instruct/wmt24pp_zh_entropy_dpo.jsonl" \
+    --few_shot_cot False \
+    --batch_size 4 \
+    --max_model_len 2048 \
+    --seed $SEED
+exit 0
+# If you use fp16 instead of bf16, you should use deepspeed
+# --fp16 True --deepspeed finetune/ds_config_zero2.json

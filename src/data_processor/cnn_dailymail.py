@@ -12,7 +12,7 @@ MACLAB_NAS_NAME = os.environ["MACLAB_NAS_NAME"]
 
 DATA_PATH="/mnt/{}/rubickjiang/public_dataset/cnn_dailymail".format(MACLAB_NAS_NAME)
 COT_EXAMPLES_chat = []
-SYSTEM_PROMPT = r"You are a skilled summarization assistant. When provided with a news report, you will carefully read and understand its content, then generate a concise and informative summary in the form of several short highlights. The highlights should be plain text and capture key points from the article. Place your final summary inside \boxed{}. For example, if the summary is \"Hello World\", you should output: \boxed{Hello World}"
+SYSTEM_PROMPT = r"You are a skilled summarization assistant. Given a news report, provide a concise, informative summary in three sentences, totaling around 50 words. Please provide your summary in plain text and place it inside \boxed{}. For example, if your summary is \"Hello World\", you should output: \boxed{Hello World}"
 
 COT_EXAMPLES_base = [
     d["content"]
@@ -34,7 +34,7 @@ def load_data(cot: bool = False):
     dataset["train"] = dataset["train"].map(lambda example: {
         "prompt": [
                 dict(role="system", content=SYSTEM_PROMPT),
-                dict(role="user", content="Here is the news report:\n'{}'\nPlease give your thoughtful summary.\n".format(example["article"])),
+                dict(role="user", content="Here is the news article:\n'{}'\nPlease summarize the article in three sentences.\n".format(example["article"])),
                 # dict(role="assistant", content="Answer: {}\n".format(format_answer(example["answer"])))
             ]
     })
@@ -44,7 +44,7 @@ def load_data(cot: bool = False):
             ] + 
             (COT_EXAMPLES_chat if cot else []) + 
             [
-                dict(role="user", content="Here is the news report:\n'{}'\nPlease give your thoughtful summary.\n".format(example["article"]))
+                dict(role="user", content="Here is the news article:\n'{}'\nPlease summarize the article in three sentences.\n".format(example["article"]))
             ]
     })
     if "validation" in dataset:
@@ -77,7 +77,7 @@ def reward_model_score(pred_txt, kwargs_list):
 
 def metric(output_text, kwargs_list):
     def extract_pred(txt):
-        pattern = r'\\boxed\{([^}]*)\}'
+        pattern = r'boxed\{([^}]*)\}'
         results = re.findall(pattern, txt)
         if results:
             ret = results[0]
@@ -97,7 +97,7 @@ def metric(output_text, kwargs_list):
     logger.info("Calculating RougeL scores...")
     for pred, ref in zip(preds, refs):
         if pred is None or len(pred) <= 0:
-            total_results.append({"rougeL": 0})
+            total_results.append({"rougeL": 0, "bleu": 0})
         else:
             comp_result = dict()
             bleu_results = bleu_metric.compute(predictions=[pred], references=[ref])

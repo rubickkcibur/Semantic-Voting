@@ -24,7 +24,7 @@ def is_valid_answer(txt):
 def extract_sentence_pairs(path):
     extracted_data = []
     def extract_pred(txt):
-        pattern = r'\\boxed\{([^}]*)\}'
+        pattern = r'boxed\{([^}]*)\}'
         results = re.findall(pattern, txt)
         if results:
             ret = results[0]
@@ -36,7 +36,19 @@ def extract_sentence_pairs(path):
             return None
         
     def extract_prompt(txt, path):
-        if "cnn_dailymail" in path or "xsum" in path:
+        if "cnn_dailymail" in path:
+            assert "'\nPlease summarize the article in three sentences." in txt
+            prompt = txt.split("'\nPlease summarize the article in three sentences.")[0].strip()
+            assert "Here is the news article:\n'" in prompt
+            prompt = prompt.split("Here is the news article:\n'")[-1].strip()
+            return prompt
+        elif "pubmed_summary" in path:
+            assert "'\nPlease summarize the article in one or two sentences." in txt
+            prompt = txt.split("'\nPlease summarize the article in one or two sentences.")[0].strip()
+            assert "Here is the medical article:\n'" in prompt
+            prompt = prompt.split("Here is the medical article:\n'")[-1].strip()
+            return prompt
+        elif "xsum" in path:
             assert "'\nPlease give your summary." in txt
             prompt = txt.split("'\nPlease give your summary.")[0].strip()
             assert "Here is the news report:\n'" in prompt

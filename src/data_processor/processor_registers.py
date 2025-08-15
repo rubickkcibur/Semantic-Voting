@@ -1,4 +1,4 @@
-from data_processor import gsm8k, wmt24pp_zh, wmt24pp_de, wmt24pp_fr, wmt19_zh, wmt24pp_ru, wmt24pp_es, cnn_dailymail, xsum, pubmed_summary
+from data_processor import gsm8k, wmt19_de, wmt19_ru, wmt14_es, wmt14_fr, wmt24pp_zh, wmt24pp_de, wmt24pp_fr, wmt24pp_ru, wmt24pp_es, cnn_dailymail, xsum, pubmed_summary
 from transformers import PreTrainedTokenizer
 
 def load_custom_dataset(dataset_name: str, tokenizer: PreTrainedTokenizer = None, cot: bool = False, apply_chat_template: bool = False):
@@ -6,7 +6,10 @@ def load_custom_dataset(dataset_name: str, tokenizer: PreTrainedTokenizer = None
         "gsm8k": gsm8k.load_data,
         "wmt24pp_zh": wmt24pp_zh.load_data,
         "wmt24pp_de": wmt24pp_de.load_data,
-        "wmt19_zh": wmt19_zh.load_data,
+        "wmt19_de": wmt19_de.load_data,
+        "wmt19_ru": wmt19_ru.load_data,
+        "wmt14_es": wmt14_es.load_data,
+        "wmt14_fr": wmt14_fr.load_data,
         "wmt24pp_fr": wmt24pp_fr.load_data,
         "wmt24pp_ru": wmt24pp_ru.load_data,
         "wmt24pp_es": wmt24pp_es.load_data,
@@ -38,7 +41,10 @@ def get_metrics(dataset_name: str):
         "gsm8k": gsm8k.metric,
         "wmt24pp_zh": wmt24pp_zh.metric,
         "wmt24pp_de": wmt24pp_de.metric,
-        "wmt19_zh": wmt19_zh.metric,
+        "wmt19_de": wmt19_de.metric,
+        "wmt19_ru": wmt19_ru.metric,
+        "wmt14_es": wmt14_es.metric,
+        "wmt14_fr": wmt14_fr.metric,
         "wmt24pp_fr": wmt24pp_fr.metric,
         "wmt24pp_ru": wmt24pp_ru.metric,
         "wmt24pp_es": wmt24pp_es.metric,
@@ -54,7 +60,10 @@ REPORT_METRICS = {
     "gsm8k": gsm8k.REPORT_METRICS,
     "wmt24pp_zh": wmt24pp_zh.REPORT_METRICS,
     "wmt24pp_de": wmt24pp_de.REPORT_METRICS,
-    "wmt19_zh": wmt19_zh.REPORT_METRICS,
+    "wmt19_de": wmt19_de.REPORT_METRICS,
+    "wmt19_ru": wmt19_ru.REPORT_METRICS,
+    "wmt14_es": wmt14_es.REPORT_METRICS,
+    "wmt14_fr": wmt14_fr.REPORT_METRICS,
     "wmt24pp_fr": wmt24pp_fr.REPORT_METRICS,
     "wmt24pp_ru": wmt24pp_ru.REPORT_METRICS,
     "wmt24pp_es": wmt24pp_es.REPORT_METRICS,

@@ -48,8 +48,8 @@ def start_generation(args, n_workers = 8):
     #generate
     sampling_params = SamplingParams(
         n = args.return_sequences,
-        temperature = 0.7,
-        top_p = 0.9,
+        temperature = args.temperature,
+        top_p = args.top_p,
         max_tokens = args.max_new_tokens, 
         seed = args.seed,
     )
@@ -135,6 +135,18 @@ if __name__ == "__main__":
         type=int,
         default=512,
         help="The maximum number of new tokens to generate (default: 512)",
+    )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.7,
+        help="The temperature to use for sampling (default: 0.7)",
+    )
+    parser.add_argument(
+        "--top_p",
+        type=float,
+        default=0.9,
+        help="The top-p sampling probability (default: 0.9)",
     )
     parser.add_argument(
         "--seed",

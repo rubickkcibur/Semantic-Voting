@@ -31,7 +31,7 @@ def train(base_model_name, dataset_name):
         params = yaml.safe_load(f)
     params["model_name_or_path"] = "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name)
     params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_entropy_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
-    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/entropy_models/{}-DPO-{}-entropy".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
+    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/new_entropy_models/{}-DPO-{}-entropy".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmpfile:
         yaml.dump(params, tmpfile, allow_unicode=True)
         temp_file_name = tmpfile.name
@@ -51,7 +51,7 @@ def evaluate(base_model_name, dataset_name):
     command = [
         "nohup", "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
         "src/open_r1/evaluation.py",
-        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/entropy_models/{}-DPO-{}-entropy".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/new_entropy_models/{}-DPO-{}-entropy".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--output_dir", "",
         "--mode", "chat",
@@ -77,12 +77,12 @@ def define_system_vars():
 if __name__ == "__main__":
     # Example usage
     for base_model_name in [
-        # "Llama-3.2-1B-Instruct",
-        # "Qwen2.5-1.5B-Instruct", 
+        "Llama-3.2-1B-Instruct",
+        "Qwen2.5-1.5B-Instruct", 
         # "Llama-3.2-3B-Instruct", 
-        # "Qwen2.5-3B-Instruct", 
-        "Meta-Llama-3-8B-Instruct",
-        "Qwen2.5-7B-Instruct"
+        "Qwen2.5-3B-Instruct", 
+        # "Meta-Llama-3-8B-Instruct",
+        # "Qwen2.5-7B-Instruct"
     ]:
         for dataset_name in [
             "wmt24pp_de", 
@@ -93,9 +93,6 @@ if __name__ == "__main__":
             "cnn_dailymail",
             "pubmed_summary"
         ]:
-            if base_model_name == "Meta-Llama-3-8B-Instruct":
-                if "wmt" in dataset_name or dataset_name == "cnn_dailymail":
-                    continue
             try:
                 define_system_vars()
                 # generate_sr_candidates(base_model_name, dataset_name)

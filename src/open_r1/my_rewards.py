@@ -38,9 +38,12 @@ from .utils.competitive_programming import score_subtask
 from data_processor.processor_registers import get_metrics
 
 
-def accuracy_reward(completions: list[str], acc_func: Callable, **kwargs) -> list[Optional[float]]:
+def accuracy_reward(prompts, completions: list[str], acc_func: Callable, **kwargs) -> list[Optional[float]]:
     """Reward function that checks if the completion is the same as the ground truth."""
-    batch_size = len(completions)
+    print(len(prompts))
+    print(prompts)
+    print(len(completions))
+    quit()
     kwargs_list = [
         {key: kwargs[key][i] for key in kwargs}
         for i in range(batch_size)

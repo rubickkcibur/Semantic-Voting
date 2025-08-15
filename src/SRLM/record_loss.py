@@ -10,6 +10,7 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed, gather_object
 import tqdm
 import torch.nn.functional as F
+import re
 
 '''
 This script is to compute losses of LLM on generated data or valid data
@@ -72,12 +73,27 @@ class LoraArguments:
     q_lora: bool = False
 
 def make_contrast_pair(obj):
+    def extract_pred(txt):
+        pattern = r'boxed\{([^}]*)\}'
+        results = re.findall(pattern, txt)
+        if results:
+            ret = results[0]
+            # ret = ret.replace("\"", "")
+            # ret = ret.replace("\'", "")
+            ret = ret.strip()
+            return ret
+        else:
+            return None
     prompt = obj["prompt"]
     outputs = obj["outputs"]
     scores = obj["scores"]
+    invalid_id = [i for i, output in enumerate(outputs) if extract_pred(output) is None]
+    invalid_id = set(invalid_id)
+    # scores_for_max = [-1e15 if i in invalid_id else s for i, s in enumerate(scores)]
     max_score = max(scores)
     chosen_id = scores.index(max_score)
     chosen = outputs[chosen_id]
+    # scores_for_min = [1e15 if i in invalid_id else s for i, s in enumerate(scores)]
     rej_score = min(scores)
     rej_id = scores.index(rej_score)
     rejected = outputs[rej_id]

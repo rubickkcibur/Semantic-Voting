@@ -9,7 +9,7 @@ import tqdm
 import logging
 MACLAB_NAS_NAME = os.environ["MACLAB_NAS_NAME"]
 
-DATA_PATH="/mnt/{}/rubickjiang/public_dataset/wmt19".format(MACLAB_NAS_NAME)
+DATA_PATH="/mnt/{}/rubickjiang/public_dataset/wmt14".format(MACLAB_NAS_NAME)
 COT_EXAMPLES_chat = [
     # dict(role="user", content="The Chinese sentence is: '我裤子后面怎么了?'\nPlease think carefully about how to translate.\n"),
     # dict(role="assistant", content="\\boxed{What's wrong with the back of my pants?}\n"),
@@ -18,7 +18,7 @@ COT_EXAMPLES_chat = [
     # dict(role="user", content="The Chinese sentence is: '敏思或才思敏捷就是智慧的重要特征。'\nPlease think carefully about how to translate.\n"),
     # dict(role="assistant", content="\\boxed{Sims or creativeness is the wisdom of an important characteristic of agility.}\n"),
 ]
-SYSTEM_PROMPT = r"You are a translation assistant who carefully and thoughtfully translates Chinese sentences into English, ensuring that the translated sentences fluent and accurately convey the original meaning. Place your translation answer in \boxed{}. For axmaple, if the answer is 'Hello World', you should output \boxed{Hello World}.\n"
+SYSTEM_PROMPT = r"You are a translation assistant who carefully and thoughtfully translates French sentences into English, ensuring that the translated sentences fluent and accurately convey the original meaning. Place your translation answer in \boxed{}. For axmaple, if the answer is 'Hello World', you should output \boxed{Hello World}.\n"
 
 COT_EXAMPLES_base = [
     d["content"]
@@ -30,15 +30,15 @@ GROUND_KEYS = {"answer"}
 REPORT_METRICS = {"bleu", "rougeL", "no_ref_MQM_score", "ref_MQM_score"}
 bleu_metric = evaluate.load("bleu")
 rouge_metric = evaluate.load("rouge")
-logger = logging.getLogger("MainLogger.wmt19_zh")
+logger = logging.getLogger("MainLogger.wmt14_fr")
 
 def load_data(cot: bool = False):
-    dataset = load_dataset(DATA_PATH, "zh-en")
-    dataset["train"] = dataset["train"].select(range(1000))
+    dataset = load_dataset(DATA_PATH, "fr-en", trust_remote_code=True)
+    dataset["train"] = dataset["validation"].select(range(1000))
     dataset["train"] = dataset["train"].map(lambda example: {
         "prompt": [
                 dict(role="system", content=SYSTEM_PROMPT),
-                dict(role="user", content="The Chinese sentence is: '{}'\nPlease think about how to translate step by step.\n".format(example["translation"]["zh"])),
+                dict(role="user", content="The French sentence is: '{}'\nPlease think about how to translate step by step.\n".format(example["translation"]["fr"])),
                 # dict(role="assistant", content="Answer: {}\n".format(format_answer(example["answer"])))
             ]
     })
@@ -48,7 +48,7 @@ def load_data(cot: bool = False):
             ] + 
             (COT_EXAMPLES_chat if cot else []) + 
             [
-                dict(role="user", content="The Chinese sentence is: '{}'\nPlease think about how to translate step by step.\n".format(example["translation"]["zh"]))
+                dict(role="user", content="The French sentence is: '{}'\nPlease think about how to translate step by step.\n".format(example["translation"]["fr"]))
             ]
     })
     if "validation" in dataset:
@@ -70,7 +70,7 @@ def reward_model_score(pred_txt, kwargs_list):
     with tqdm.tqdm(total=total_length, desc="Calculating MQM scores without reference") as pbar:
         for i in range(0, total_length, batch_size):
             batch_preds = pred_txt[i:i+batch_size]
-            batch_source = [kwarg["translation"]["zh"] for kwarg in kwargs_list[i:i+batch_size]]
+            batch_source = [kwarg["translation"]["fr"] for kwarg in kwargs_list[i:i+batch_size]]
             batch_texts = [
                 "source: " + source + " candidate: " + pred
                 for pred, source in zip(batch_preds, batch_source)
@@ -91,7 +91,7 @@ def reward_model_score(pred_txt, kwargs_list):
     with tqdm.tqdm(total=total_length, desc="Calculating MQM scores with reference") as pbar:
         for i in range(0, total_length, batch_size):
             batch_preds = pred_txt[i:i+batch_size]
-            batch_source = [kwarg["translation"]["zh"] for kwarg in kwargs_list[i:i+batch_size]]
+            batch_source = [kwarg["translation"]["fr"] for kwarg in kwargs_list[i:i+batch_size]]
             batch_refs = [kwarg["translation"]["en"] for kwarg in kwargs_list[i:i+batch_size]]
             batch_texts = [
                 "source: " + source + " candidate: " + pred + " reference: " + ref

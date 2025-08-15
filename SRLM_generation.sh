@@ -19,10 +19,10 @@ python src/SRLM/generate.py \
     --tokenizer_path "" \
     --output_dir "/mnt/${MACLAB_NAS_NAME}/rubickjiang/codes/open-r1/data/SR_candidates" \
     --mode "chat" \
-    --dataset_name "cnn_dailymail" \
+    --dataset_name "wmt24pp_zh" \
     --few_shot_cot False \
     --batch_size 4 \
-    --return_sequences 64 \
+    --return_sequences 256 \
     --max_model_len 2048 \
     --max_new_tokens 512 \
     --seed $SEED

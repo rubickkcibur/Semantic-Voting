@@ -108,10 +108,13 @@ def start_generation(args, n_workers = 8):
         max_score = max(scores)
         if max_score < 0:
             return None
-        chosen_id = scores.index(max_score)
+        chosen_ids = [i for i, score in enumerate(scores) if score == max_score]
+        chosen_id = random.choice(chosen_ids)
         chosen = outputs[chosen_id]
+
         rej_score = min([1e6 if s < 0 else s for s in scores])
-        rej_id = scores.index(rej_score)
+        rej_ids = [i for i, score in enumerate(scores) if score == rej_score]
+        rej_id = random.choice(rej_ids)
         rejected = outputs[rej_id]
         return {
             "prompt": prompt,

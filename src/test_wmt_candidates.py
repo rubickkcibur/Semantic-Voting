@@ -18,9 +18,12 @@ from scipy.stats import kendalltau, spearmanr
 from datasets import load_dataset
 from bleurt_pytorch import BleurtConfig, BleurtForSequenceClassification, BleurtTokenizer
 import umap
+import ray
+import json
 
 MACLAB_NAS_NAME = "maclabcv2"
 GLOBAL_SEED = 42
+ray.init(num_gpus=8)
 
 def reward_model_score(pred_txt, sources, model, tokenizer):
     batch_size = 64
@@ -40,37 +43,16 @@ def reward_model_score(pred_txt, sources, model, tokenizer):
             truncation=True,
             padding="max_length",
             return_tensors="pt"
-        ).to("cuda:0")
+        ).to("cuda")
         with torch.no_grad():
             outputs = model(**batch_inputs)
             scores = outputs.predictions.detach().cpu().float().numpy().tolist()
         no_reference_scores.extend(scores)
-    # reference_scores = []
-    # with tqdm.tqdm(total=total_length, desc="Calculating MQM scores with reference") as pbar:
-    #     for i in range(0, total_length, batch_size):
-    #         batch_preds = pred_txt[i:i+batch_size]
-    #         batch_source = kwargs_list["target"][i:i+batch_size]
-    #         batch_refs = kwargs_list["source"][i:i+batch_size]
-    #         batch_texts = [
-    #             "source: " + source + " candidate: " + pred + " reference: " + ref
-    #             for pred, source, ref in zip(batch_preds, batch_source, batch_refs)
-    #         ]
-    #         batch_inputs = tokenizer(
-    #             batch_texts,
-    #             max_length=512,
-    #             truncation=True,
-    #             padding="max_length",
-    #             return_tensors="pt"
-    #         ).to("cuda:0")
-    #         with torch.no_grad():
-    #             outputs = model(**batch_inputs)
-    #             scores = outputs.predictions.detach().cpu().float().numpy().tolist()
-    #         reference_scores.extend(scores)
-    #         pbar.update(len(batch_texts))
     return no_reference_scores
 
-def compute_metrix():
+def compute_metrix(model_name, task):
     data = []
+    candidates_path = "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_output_64.jsonl".format(model_name, task)
     def extract_pred(txt):
         pattern = r'\\boxed\{([^}]*)\}'
         results = re.findall(pattern, txt)
@@ -82,10 +64,10 @@ def compute_metrix():
             return ret
         else:
             return None
-    with jsonlines.open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/wmt_output.jsonl", "r") as f:
+    with jsonlines.open(candidates_path, "r") as f:
         for item in f:
-            prompt = item["prompt"].split("The Chinese sentence is:")[-1].split("Please think about how to translate step by step.")[0].strip()
-            prompt = prompt.replace("\'", "").strip()
+            prompt = item["prompt"].split("sentence is: '")[-1].split("'\nPlease think about how to translate step by step.\n")[0].strip()
+            # prompt = prompt.replace("\'", "").strip()
             candidates = item["outputs"]
             preds = [extract_pred(candidate) for candidate in candidates]
             data.append({
@@ -93,11 +75,11 @@ def compute_metrix():
                 "candidates": preds
             })
     model = mt5_model.MT5ForRegression.from_pretrained("/mnt/{}/rubickjiang/proj_storage/huggingface_models/metricx-24-hybrid-large-v2p6-bfloat16".format(MACLAB_NAS_NAME), torch_dtype=torch.bfloat16)
-    model.to("cuda:0")
+    model.to("cuda")
     model.eval()
     tokenizer = transformers.AutoTokenizer.from_pretrained("google/mt5-xl", trust_remote_code=True)
     tokenizer.padding_side = "left"
-    with jsonlines.open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/wmt_output_metrix.jsonl", "w") as f:
+    with jsonlines.open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_metrix.jsonl".format(model_name, task), "w") as f:
         with tqdm.tqdm(total=len(data)) as pbar:
             for item in data:
                 sources = [item["chinese"]] * len(item["candidates"])
@@ -169,8 +151,8 @@ def sim_emb():
     plt.savefig("./test.png")
     quit()
 
-def test_designed_metric():
-    device = "cuda:0"
+def test_designed_metric(model_name, task):
+    device = "cuda"
     tokenizer = transformers.AutoTokenizer.from_pretrained(
         "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased",
         padding_side="left",
@@ -179,7 +161,7 @@ def test_designed_metric():
         "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased",
         torch_dtype=torch.float32
     ).to(device)
-    with jsonlines.open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/wmt_output_metrix.jsonl", "r") as fr:
+    with jsonlines.open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_metrix.jsonl".format(model_name, task), "r") as fr:
         data = [item for item in fr]
     model.eval()
 
@@ -237,8 +219,8 @@ def test_designed_metric():
             # devide clusters
             clusteror = hdbscan.HDBSCAN(
                 metric='precomputed', 
-                min_cluster_size = 3, 
-                min_samples = 3, 
+                min_cluster_size = 4, 
+                min_samples = 2, 
                 provide_probabilities = True, 
                 allow_single_cluster = True,
                 # prediction_data = True
@@ -330,30 +312,56 @@ def test_designed_metric():
             # mid = len(pseudo_rank)//2
             higher = sum([metric_pairs[idx]["score"] for idx in pseudo_rank[:1]])
             lower = sum([metric_pairs[idx]["score"] for idx in pseudo_rank[-1:]])
-            win_rate += 1 if higher > lower else 0
+            win_rate += 1 if higher < lower else 0
             top_reward += higher / 1
             tail_reward += lower / 1
 
     for k in topK:
         topK[k] /= len(kendals)
-    print("TopK Rewards:", top_reward / len(kendals))
-    print("Tail Rewards:", tail_reward / len(kendals))
-    print("Win Rate:", win_rate / len(kendals))
-    print("TopK Results:", topK)
-    print("{} filtered results in total".format(len(kendals)))
-    print("Avg Main cluster size:", main_cluster_size / len(data))
-    print("Avg Cluster types:", cluster_types / len(data))
-    print("Kentall_tau Results:\n")
+    results = {}
+    results["TopK Rewards:"] = top_reward / len(kendals)
+    results["Tail Rewards:"] = tail_reward / len(kendals)
+    results["Win Rate:"] = win_rate / len(kendals)
+    results["TopK Results:"] = topK
+    results["Filtered Results Count:"] = len(kendals)
+    results["Avg Main cluster size:"] = main_cluster_size / len(data)
+    results["Avg Cluster types:"] = cluster_types / len(data)
     for k in kendals[0]:
         value = [obj[k] for obj in kendals]
         value = sum(value)/len(value)
-        print(k + ":" + str(value))
-    print("\nSpears Results:\n")
+        results["Kentall_tau-" + k] = str(value)
     for k in spears[0]:
         value = [obj[k] for obj in spears]
         value = sum(value)/len(value)
-        print(k + ":" + str(value))
-    print("min similarity:", min_sim)
+        results["Spears-" + k] = str(value)
+    results["min similarity:"] = min_sim
+    with open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_analysis.json".format(model_name, task), "w") as f:
+        json.dump(results, f, indent=4)
+
+    # print("TopK Rewards:", top_reward / len(kendals))
+    # print("Tail Rewards:", tail_reward / len(kendals))
+    # print("Win Rate:", win_rate / len(kendals))
+    # print("TopK Results:", topK)
+    # print("{} filtered results in total".format(len(kendals)))
+    # print("Avg Main cluster size:", main_cluster_size / len(data))
+    # print("Avg Cluster types:", cluster_types / len(data))
+    # print("Kentall_tau Results:\n")
+    # for k in kendals[0]:
+    #     value = [obj[k] for obj in kendals]
+    #     value = sum(value)/len(value)
+    #     print(k + ":" + str(value))
+    # print("\nSpears Results:\n")
+    # for k in spears[0]:
+    #     value = [obj[k] for obj in spears]
+    #     value = sum(value)/len(value)
+    #     print(k + ":" + str(value))
+    # print("min similarity:", min_sim)
+
+@ray.remote(num_gpus = 1)
+def dist_func(model_name, task):
+    compute_metrix(model_name, task)
+    test_designed_metric(model_name, task)
+
 
 seed = GLOBAL_SEED
 random.seed(seed)
@@ -369,5 +377,11 @@ torch.use_deterministic_algorithms(True)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 
-
-test_designed_metric()
+if __name__ == "__main__":
+    exec_pairs = []
+    for model_name in ["Meta-Llama-3-8B-Instruct"]:
+        for task in ["wmt24pp_de", "wmt24pp_fr", "wmt24pp_ru", "wmt24pp_es"]:
+            exec_pairs.append((model_name, task))
+    futures = [dist_func.remote(model_name, task) for model_name, task in exec_pairs]
+    ray.get(futures)
+    ray.shutdown()

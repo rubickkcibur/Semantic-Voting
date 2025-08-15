@@ -5,10 +5,10 @@ from external_lib import mt5_model
 import umap
 import re
 import numpy as np
-from sklearn.preprocessing import normalize
-import plotly.graph_objects as go
-import plotly.io as pio
-import plotly
+from sklearn.preprocessing import MinMaxScaler
+import seaborn as sns
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def draw_clusters(source, candidates):
     device = "cuda:0"
@@ -66,29 +66,35 @@ def draw_clusters(source, candidates):
         output = model(**encodings)
         emb = torch.nn.functional.normalize(output.last_hidden_state[:, 0, :], p=2, dim=1)
         emb = emb.detach().cpu().float().numpy()
-    reducer = umap.UMAP(n_neighbors=5, metric='cosine', n_components=3, random_state=42, min_dist = 0.5)
+    reducer = umap.UMAP(n_neighbors=5, metric='cosine', n_components=2, random_state=42, min_dist = 0.5)
     emb_umap = reducer.fit_transform(emb)
-    emb_umap = normalize(emb_umap, axis=1, norm='l2')
-    trace = go.Scatter3d(
-        x = emb_umap[:, 0],
-        y = emb_umap[:, 1],
-        z = emb_umap[:, 2],
-        mode='markers',
-        marker=dict(
-            size=2,
-            color=scores,  # set color to an array/list of desired values
-            colorscale='Viridis',  # choose a colorscale
-            opacity=0.8,
-            colorbar=dict(title='Scores')
-        )
+    scaler = MinMaxScaler()
+    emb_umap = scaler.fit_transform(emb_umap)
+
+    visual_data = {
+        "x": emb_umap[:, 0].tolist(),
+        "y": emb_umap[:, 1].tolist(),
+        "scores": scores,
+        "candidates": cands,
+    }
+    score_max = max(visual_data["scores"])
+    score_min = min(visual_data["scores"])
+    visual_data = pd.DataFrame(visual_data)
+    sns.set_theme(style="whitegrid")
+    palette = sns.light_palette("red", n_colors=1, reverse=True, as_cmap=True)
+    scatter = plt.scatter(
+        visual_data["x"],
+        visual_data["y"],
+        c = visual_data["scores"],
+        s = 50,
+        alpha = 0.6,
+        cmap = palette,
+        vmin = 3.2,    # 例如：你关心的最小值
+        vmax = 3.5,   # 例如：你关心的最大值，过滤掉大于50的极端值
     )
-    layout = go.Layout(title = "clusters")
-    fig = go.Figure(data=[trace], layout=layout)
-    # pio.write_image(fig, "./test.png")
-    plotly.offline.plot(fig, filename='clusters.html')
+    plt.colorbar(scatter, label="Score")
+    plt.savefig("test.png")
     
-    print(emb_umap.shape)
-    print(len(scores))
 
 def extract_data(obj):
     def extract_pred(txt):
@@ -106,8 +112,8 @@ def extract_data(obj):
     candidates = [extract_pred(cand) for cand in candidates]
     return prompt, candidates
 
-with jsonlines.open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-1.5B-Instruct/wmt24pp_zh_output_64.jsonl", "r") as reader:
+with jsonlines.open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-1.5B-Instruct/wmt24pp_fr_output_64.jsonl", "r") as reader:
     objs = [obj for obj in reader]
-    prompt, candidates = extract_data(objs[0])
+    prompt, candidates = extract_data(objs[5])
     draw_clusters(prompt, candidates)
 

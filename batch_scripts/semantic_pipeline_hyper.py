@@ -75,7 +75,7 @@ def evaluate(base_model_name, dataset_name, min_cluster_size=5, min_samples=2):
         "--bf16", "True",
         "--few_shot_cot", "False",
         "--per_device_eval_batch_size", "8",
-        "--max_new_tokens", "512",
+        "--max_new_tokens", "800",
         "--model_max_length", "2048",
     ]
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     # Example usage
     searching_pairs = [
         # ("Llama-3.2-1B-Instruct", "wmt24pp_de"),
-        ("Qwen2.5-3B-Instruct", "wmt24pp_de"),
+        ("Qwen2.5-7B-Instruct", "wmt24pp_de"),
         # ("Llama-3.2-3B-Instruct", "wmt24pp_de"),
         # ("Llama-3.2-1B-Instruct", "wmt24pp_fr"),
         # ("Qwen2.5-7B-Instruct", "wmt24pp_ru"),

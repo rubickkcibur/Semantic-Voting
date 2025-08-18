@@ -8,6 +8,7 @@ import numpy as np
 import transformers
 from data_processor.processor_registers import load_custom_dataset
 import re
+import time
 
 ray.init()
 
@@ -218,7 +219,7 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
-    random.seed(seed)
+    random.seed(time.time())
 
     start_generation(args, n_workers = 8)
         

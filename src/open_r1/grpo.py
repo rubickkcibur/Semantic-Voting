@@ -28,10 +28,135 @@ from open_r1.utils.callbacks import get_callbacks
 from open_r1.utils.wandb_logging import init_wandb_training
 from data_processor.processor_registers import load_custom_dataset
 from trl import GRPOTrainer, ModelConfig, TrlParser, get_peft_config
-
+from functools import partial, update_wrapper
+import torch
 
 logger = logging.getLogger("MainLogger")
 
+class MyGRPOTrainer(GRPOTrainer):
+    def __init__(self, *args, emb_tokenizer=None, emb_model=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        # self.emb_tokenizer = emb_tokenizer
+        # self.emb_model = emb_model.to(self.accelerator.device)
+        # self.emb_model.eval()
+        for i, reward_func in enumerate(self.reward_funcs):
+            self.reward_funcs[i] = update_wrapper(
+                    partial(
+                        reward_func,
+                        # emb_tokenizer=self.emb_tokenizer,
+                        # emb_model=self.emb_model,
+                        accelerator=self.accelerator,
+                    ),
+                    reward_func
+                )
+    def _compute_loss(self, model, inputs):
+        # processing nan
+        def nanmin(tensor: torch.Tensor) -> torch.Tensor:
+            if torch.isnan(tensor).all():
+                return torch.tensor(float("nan"), dtype=tensor.dtype, device=tensor.device)
+            return torch.min(tensor[~torch.isnan(tensor)])
+        def nanmax(tensor: torch.Tensor) -> torch.Tensor:
+            if torch.isnan(tensor).all():
+                return torch.tensor(float("nan"), dtype=tensor.dtype, device=tensor.device)
+            return torch.max(tensor[~torch.isnan(tensor)])
+        # Compute the per-token log probabilities for the model
+        prompt_ids, prompt_mask = inputs["prompt_ids"], inputs["prompt_mask"]
+        completion_ids, completion_mask = inputs["completion_ids"], inputs["completion_mask"]
+        input_ids = torch.cat([prompt_ids, completion_ids], dim=1)
+        attention_mask = torch.cat([prompt_mask, completion_mask], dim=1)
+        logits_to_keep = completion_ids.size(1)  # we only need to compute the logits for the completion tokens
+
+        per_token_logps = self._get_per_token_logps(model, input_ids, attention_mask, logits_to_keep)
+
+        # Compute the KL divergence between the model and the reference model
+        if self.beta != 0.0:
+            with torch.no_grad():
+                if self.ref_model is not None:
+                    ref_per_token_logps = self._get_per_token_logps(
+                        self.ref_model, input_ids, attention_mask, logits_to_keep
+                    )
+                else:
+                    with self.accelerator.unwrap_model(self.model).disable_adapter():
+                        ref_per_token_logps = self._get_per_token_logps(
+                            self.model, input_ids, attention_mask, logits_to_keep
+                        )
+            per_token_kl = (
+                torch.exp(ref_per_token_logps - per_token_logps) - (ref_per_token_logps - per_token_logps) - 1
+            )
+
+        # Compute the loss
+        advantages = inputs["advantages"]
+        min_advs = advantages.min()
+        advantage_mask = torch.isclose(advantages, min_advs, atol=1e-6)
+        valid_element = advantages[~advantage_mask]
+        if valid_element.numel() > 0:
+            valid_mean = valid_element.mean()
+            valid_std = valid_element.std()
+        else:
+            valid_mean = torch.tensor(0.0, device=valid_element.device)
+            valid_std = torch.tensor(1.0, device=valid_element.device)
+            advantage_mask = torch.zeros_like(advantages, dtype=torch.bool)
+        advantages = (advantages - valid_mean) / (valid_std + 1e-4)
+        advantages = advantages.detach()
+
+        # When using num_iterations == 1 and steps_per_generation <= gradient_accumulation_steps
+        # old_per_token_logps == per_token_logps, so we can skip it's computation
+        # (see _generate_and_score_completions) and use per_token_logps.detach() instead.
+        old_per_token_logps = (
+            per_token_logps.detach() if inputs["old_per_token_logps"] is None else inputs["old_per_token_logps"]
+        )
+        coef_1 = torch.exp(per_token_logps - old_per_token_logps)
+        coef_2 = torch.clamp(coef_1, 1 - self.epsilon_low, 1 + self.epsilon_high)
+
+        # Two-sided clipping
+        if self.args.delta is not None:
+            coef_1 = torch.clamp(coef_1, max=self.args.delta)
+
+        per_token_loss1 = coef_1 * advantages.unsqueeze(1)
+        per_token_loss2 = coef_2 * advantages.unsqueeze(1)
+        per_token_loss = -torch.min(per_token_loss1, per_token_loss2)
+        if self.beta != 0.0:
+            per_token_loss = per_token_loss + self.beta * per_token_kl
+
+        if self.loss_type == "grpo":
+            loss = ((per_token_loss * completion_mask).sum(-1) / completion_mask.sum(-1).clamp(min=1.0)).mean()
+        elif self.loss_type == "bnpo":
+            valid_per_token_loss = per_token_loss[~advantage_mask, :]
+            valid_completion_mask = completion_mask[~advantage_mask, :]
+            # print(f"valid_per_token_loss: {valid_per_token_loss.shape}, valid_completion_mask: {valid_completion_mask.shape}")
+            valid_loss = (valid_per_token_loss * valid_completion_mask).sum() / valid_completion_mask.sum().clamp(min=1.0)
+            loss = valid_loss
+            # loss = (per_token_loss * completion_mask).sum() / completion_mask.sum().clamp(min=1.0)
+        elif self.loss_type == "dr_grpo":
+            loss = (per_token_loss * completion_mask).sum() / (per_token_loss.size(0) * self.max_completion_length)
+        else:
+            raise ValueError(f"Unknown loss type: {self.loss_type}")
+
+        # Log the metrics
+        mode = "train" if self.model.training else "eval"
+
+        if self.beta != 0.0:
+            mean_kl = (per_token_kl * completion_mask).sum() / completion_mask.sum()
+            self._metrics[mode]["kl"].append(self.accelerator.gather(mean_kl).nanmean().item())
+
+        # Compute the clipped probability ratios
+        is_low_clipped = (coef_1 < 1 - self.epsilon_low) & (advantages.unsqueeze(1) < 0)
+        is_high_clipped = (coef_1 > 1 + self.epsilon_high) & (advantages.unsqueeze(1) > 0)
+        is_region_clipped = is_low_clipped | is_high_clipped
+
+        low_clip = (is_low_clipped * completion_mask).sum() / completion_mask.sum()
+        high_clip = (is_high_clipped * completion_mask).sum() / completion_mask.sum()
+        clip_ratio = (is_region_clipped * completion_mask).sum() / completion_mask.sum()
+
+        gathered_low_clip = self.accelerator.gather(low_clip)
+        self._metrics[mode]["clip_ratio/low_mean"].append(gathered_low_clip.nanmean().item())
+        self._metrics[mode]["clip_ratio/low_min"].append(nanmin(gathered_low_clip).item())
+        gathered_high_clip = self.accelerator.gather(high_clip)
+        self._metrics[mode]["clip_ratio/high_mean"].append(gathered_high_clip.nanmean().item())
+        self._metrics[mode]["clip_ratio/high_max"].append(nanmax(gathered_high_clip).item())
+        gathered_clip_ratio = self.accelerator.gather(clip_ratio)
+        self._metrics[mode]["clip_ratio/region_mean"].append(gathered_clip_ratio.nanmean().item())
+        return loss
 
 def main(script_args, training_args, model_args):
     # Set seed for reproducibility
@@ -73,6 +198,7 @@ def main(script_args, training_args, model_args):
 
     # Load the dataset
     # dataset = get_dataset(script_args)
+    
 
     ################
     # Load tokenizer
@@ -115,9 +241,19 @@ def main(script_args, training_args, model_args):
     #############################
     # Initialize the GRPO trainer
     #############################
-    trainer = GRPOTrainer(
+    # emb_tokenizer = transformers.AutoTokenizer.from_pretrained(
+    #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased",
+    #     padding_side="left",
+    # )
+    # emb_model = transformers.AutoModel.from_pretrained(
+    #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased",
+    #     torch_dtype=torch.float32
+    # )
+    trainer = MyGRPOTrainer(
         model=model,
         reward_funcs=reward_funcs,
+        # emb_tokenizer=emb_tokenizer,
+        # emb_model=emb_model,
         args=training_args,
         train_dataset=dataset["train"],
         eval_dataset=(dataset["test"] if training_args.eval_strategy != "no" else None),

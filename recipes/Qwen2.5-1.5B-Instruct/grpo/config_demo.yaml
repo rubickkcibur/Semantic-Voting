@@ -5,14 +5,15 @@ torch_dtype: bfloat16
 attn_implementation: flash_attention_2
 
 # Data training arguments
-dataset_name: gsm8k
-dataset_prompt_column: problem
-system_prompt: "You are a helpful AI Assistant that provides well-reasoned and detailed responses. You first think about the reasoning process as an internal monologue and then provide the user with the answer. Respond in the following format: <think>\n...\n</think>\n<answer>\n...\n</answer>"
+dataset_name: wmt24pp_de
+# dataset_prompt_column: problem
+# system_prompt: "You are a helpful AI Assistant that provides well-reasoned and detailed responses. You first think about the reasoning process as an internal monologue and then provide the user with the answer. Respond in the following format: <think>\n...\n</think>\n<answer>\n...\n</answer>"
 
 # GRPO trainer config
+loss_type: "bnpo"
 bf16: true
 use_vllm: true
-vllm_gpu_memory_utilization: 0.5
+vllm_gpu_memory_utilization: 0.2
 do_eval: false
 gradient_accumulation_steps: 1
 gradient_checkpointing: true
@@ -30,7 +31,7 @@ lr_scheduler_type: cosine
 max_prompt_length: 512
 max_completion_length: 1024
 max_steps: -1
-num_generations: 16
+num_generations: 8
 num_train_epochs: 1
 output_dir: data/Qwen2.5-1.5B-Open-R1-GRPO
 overwrite_output_dir: true
@@ -40,7 +41,7 @@ push_to_hub: false
 report_to:
 - none
 reward_funcs:
-- accuracy
+- cluster_score
 # - format
 # - tag_count
 reward_weights:
@@ -51,6 +52,7 @@ save_strategy: "epoch"
 save_total_limit: 1
 seed: 42
 temperature: 0.7
+top_p: 0.9
 use_liger_kernel: true
 warmup_ratio: 0.1
 beta: 0.4

@@ -67,6 +67,7 @@ def define_system_vars():
     os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
     os.environ["SEED"] = "42"
     os.environ["ACCELERATE_LOG_LEVEL"]="info"
+    os.environ["MKL_SERVICE_FORCE_INTEL"]="1"
 
 
 if __name__ == "__main__":

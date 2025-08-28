@@ -31,18 +31,18 @@ lr_scheduler_type: cosine
 max_prompt_length: 512
 max_completion_length: 1024
 max_steps: -1
-num_generations: 8
+num_generations: 4
 num_train_epochs: 1
 output_dir: data/Qwen2.5-1.5B-Open-R1-GRPO
 overwrite_output_dir: true
 per_device_eval_batch_size: 16
-per_device_train_batch_size: 8
+per_device_train_batch_size: 4
 push_to_hub: false
 report_to:
 - none
 reward_funcs:
-- cluster_score
-# - format
+# - cluster_score
+- entropy
 # - tag_count
 reward_weights:
 - 1.0

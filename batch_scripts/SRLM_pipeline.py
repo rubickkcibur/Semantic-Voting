@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 import yaml
 
+RETRY_ID=0
 def compute_self_scores(base_model_name, dataset_name):
     # Define the command to run the SRLM cluster scoring script
     command = [
@@ -18,7 +19,9 @@ def compute_self_scores(base_model_name, dataset_name):
         "--return_sequences", "1",
         "--max_model_len", "3072",
         "--max_new_tokens", "512",
-        "--seed", "42"
+        "--use_format_filter", "True",
+        "--seed", "42",
+        "--n_workers", "8"
     ]
 
     # Run the command
@@ -32,7 +35,7 @@ def train(base_model_name, dataset_name):
         params = yaml.safe_load(f)
     params["model_name_or_path"] = "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name)
     params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_self_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
-    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-self".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
+    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-self-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, RETRY_ID)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmpfile:
         yaml.dump(params, tmpfile, allow_unicode=True)
         temp_file_name = tmpfile.name
@@ -52,7 +55,7 @@ def evaluate(base_model_name, dataset_name, max_new_tokens=512):
     command = [
         "nohup", "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
         "src/open_r1/evaluation.py",
-        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-self".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-self-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, RETRY_ID),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--output_dir", "",
         "--mode", "chat",
@@ -77,22 +80,26 @@ def define_system_vars():
 
 if __name__ == "__main__":
     # Example usage
-    searching_pairs = [
-        ("Meta-Llama-3-8B-Instruct", "cnn_dailymail", 5, 2),
-        ("Qwen2.5-1.5B-Instruct", "cnn_dailymail", 5, 2),
+    pairs = [
+        ("Qwen2.5-1.5B-Instruct", "wmt24pp_es"),
+        ("Llama-3.2-3B-Instruct", "pubmed_summary")
     ]
-    for base_model_name, dataset_name, min_cluster_size, min_samples in searching_pairs:
-        try:
-            define_system_vars()
-            # generate_sr_candidates(base_model_name, dataset_name)
-            compute_self_scores(base_model_name, dataset_name)
-            train(base_model_name, dataset_name)
-            evaluate(
-                base_model_name, 
-                dataset_name, 
-                max_new_tokens=800 if base_model_name=="Qwen2.5-7B-Instruct" and dataset_name=="wmt24pp_ru" else 512
-            )
-        except Exception as e:
-            print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")
-            quit()
+    for retry_id in range(8):
+        RETRY_ID = retry_id
+        for base_model_name, dataset_name in pairs:
+            if RETRY_ID > 0 and base_model_name == "Qwen2.5-1.5B-Instruct":
+                continue
+            try:
+                define_system_vars()
+                # generate_sr_candidates(base_model_name, dataset_name)
+                compute_self_scores(base_model_name, dataset_name)
+                train(base_model_name, dataset_name)
+                evaluate(
+                    base_model_name, 
+                    dataset_name, 
+                    max_new_tokens=800 if base_model_name=="Qwen2.5-7B-Instruct" else 512
+                )
+            except Exception as e:
+                print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")
+                quit()
     

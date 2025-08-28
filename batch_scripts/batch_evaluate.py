@@ -14,7 +14,7 @@ def evaluate(model_name_or_path, dataset_name, tokenizer_path=None):
         "--bf16", "True",
         "--few_shot_cot", "False",
         "--per_device_eval_batch_size", "8",
-        "--max_new_tokens", "512",
+        "--max_new_tokens", "800",
         "--model_max_length", "2048",
     ]
 
@@ -30,50 +30,80 @@ def define_system_vars():
 
 
 if __name__ == "__main__":
-    # Example usage
-    for base_model_name in [
-        "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Llama-3.2-1B-Instruct",
-        "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-1.5B-Instruct",
-        "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Llama-3.2-3B-Instruct",
-        "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-3B-Instruct",
-        "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Meta-Llama-3-8B-Instruct",
-        "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-7B-Instruct",
-    ]:
-        for dataset_name in [
-            "wmt14_es",
-            "wmt14_fr",
-            "wmt19_de",
-            "wmt19_ru",
-        ]:
+    test_trained_pairs = [
+        # ("wmt19_de", "wmt24pp_de"),
+        ("wmt14_fr", "wmt24pp_fr"),
+        ("wmt19_ru", "wmt24pp_ru"),
+        ("wmt14_es", "wmt24pp_es"),
+    ]
+    for test_dataset, trained_dataset in test_trained_pairs:
+        for base_model in ["Llama-3.2-1B-Instruct", "Qwen2.5-1.5B-Instruct"]:
             define_system_vars()
-            evaluate(base_model_name, dataset_name)
+            evaluate(
+                "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/{}".format(base_model), 
+                test_dataset, 
+                tokenizer_path="/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/{}".format(base_model)
+            )
+            evaluate(
+                "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_results/main_models/{}-DPO-{}-5-2".format(base_model, trained_dataset), 
+                test_dataset, 
+                tokenizer_path="/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/{}".format(base_model)
+            )
+    quit()
+
+    # Example usage
+    # for base_model_name in [
+    #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Llama-3.2-1B-Instruct",
+    #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-1.5B-Instruct",
+    #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Llama-3.2-3B-Instruct",
+    #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-3B-Instruct",
+    #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Meta-Llama-3-8B-Instruct",
+    #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/Qwen2.5-7B-Instruct",
+    # ]:
+    #     for dataset_name in [
+    #         "wmt14_es",
+    #         "wmt14_fr",
+    #         "wmt19_de",
+    #         "wmt19_ru",
+    #     ]:
+    #         define_system_vars()
+    #         evaluate(base_model_name, dataset_name)
     trained_model_paths = [
-        ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Llama-3.2-1B-Instruct-DPO-wmt24pp_es-6-5", "Llama-3.2-1B-Instruct"),
-        ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Llama-3.2-3B-Instruct-DPO-wmt24pp_es-5-2", "Llama-3.2-3B-Instruct"),
-        ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Meta-Llama-3-8B-Instruct-DPO-wmt24pp_es-4-2", "Meta-Llama-3-8B-Instruct"),
-        ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-1.5B-Instruct-DPO-wmt24pp_es-5-1", "Qwen2.5-1.5B-Instruct"),
-        ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-3B-Instruct-DPO-wmt24pp_es-6-1", "Qwen2.5-3B-Instruct"),
-        ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_es-4-2", "Qwen2.5-7B-Instruct"),
-        ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Llama-3.2-1B-Instruct-DPO-wmt24pp_fr-5-2", "Llama-3.2-1B-Instruct"),
-        ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Llama-3.2-3B-Instruct-DPO-wmt24pp_fr-5-2", "Llama-3.2-3B-Instruct"),
-        ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Meta-Llama-3-8B-Instruct-DPO-wmt24pp_fr-4-2", "Meta-Llama-3-8B-Instruct"),
-        ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-1.5B-Instruct-DPO-wmt24pp_fr-5-2", "Qwen2.5-1.5B-Instruct"),
-        ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-3B-Instruct-DPO-wmt24pp_fr-6-2", "Qwen2.5-3B-Instruct"),
-        ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_fr-4-2", "Qwen2.5-7B-Instruct"),
-        ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Llama-3.2-1B-Instruct-DPO-wmt24pp_de-5-2", "Llama-3.2-1B-Instruct"),
-        ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Llama-3.2-3B-Instruct-DPO-wmt24pp_de-5-2", "Llama-3.2-3B-Instruct"),
-        ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Meta-Llama-3-8B-Instruct-DPO-wmt24pp_de-4-2", "Meta-Llama-3-8B-Instruct"),
-        ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-1.5B-Instruct-DPO-wmt24pp_de-5-2", "Qwen2.5-1.5B-Instruct"),
-        ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-3B-Instruct-DPO-wmt24pp_de-5-2", "Qwen2.5-3B-Instruct"),
-        ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_de-4-2", "Qwen2.5-7B-Instruct"),
-        ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Llama-3.2-1B-Instruct-DPO-wmt24pp_ru-5-2", "Llama-3.2-1B-Instruct"),
-        ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Llama-3.2-3B-Instruct-DPO-wmt24pp_ru-5-2", "Llama-3.2-3B-Instruct"),
-        ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Meta-Llama-3-8B-Instruct-DPO-wmt24pp_ru-4-2", "Meta-Llama-3-8B-Instruct"),
-        ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-1.5B-Instruct-DPO-wmt24pp_ru-6-1", "Qwen2.5-1.5B-Instruct"),
-        ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-3B-Instruct-DPO-wmt24pp_ru-5-2", "Qwen2.5-3B-Instruct"),
-        ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_ru-4-1", "Qwen2.5-7B-Instruct"),
+        # ("wmt24pp_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/ab_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_de-5-2", "Qwen2.5-7B-Instruct"),
+        # ("wmt24pp_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/ab_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_es-5-2", "Qwen2.5-7B-Instruct"),
+        # ("wmt24pp_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/ab_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_fr-5-2", "Qwen2.5-7B-Instruct"),
+        ("wmt24pp_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/ab_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_ru-5-2", "Qwen2.5-7B-Instruct"),
+        # ("cnn_dailymail", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/ab_models/Qwen2.5-7B-Instruct-DPO-cnn_dailymail-5-2", "Qwen2.5-7B-Instruct"),
+        # ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Llama-3.2-1B-Instruct-DPO-wmt24pp_es-6-5", "Llama-3.2-1B-Instruct"),
+        # ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Llama-3.2-3B-Instruct-DPO-wmt24pp_es-5-2", "Llama-3.2-3B-Instruct"),
+        # ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Meta-Llama-3-8B-Instruct-DPO-wmt24pp_es-4-2", "Meta-Llama-3-8B-Instruct"),
+        # ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-1.5B-Instruct-DPO-wmt24pp_es-5-1", "Qwen2.5-1.5B-Instruct"),
+        # ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-3B-Instruct-DPO-wmt24pp_es-6-1", "Qwen2.5-3B-Instruct"),
+        # ("wmt14_es", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_es-4-2", "Qwen2.5-7B-Instruct"),
+        # ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Llama-3.2-1B-Instruct-DPO-wmt24pp_fr-5-2", "Llama-3.2-1B-Instruct"),
+        # ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Llama-3.2-3B-Instruct-DPO-wmt24pp_fr-5-2", "Llama-3.2-3B-Instruct"),
+        # ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Meta-Llama-3-8B-Instruct-DPO-wmt24pp_fr-4-2", "Meta-Llama-3-8B-Instruct"),
+        # ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-1.5B-Instruct-DPO-wmt24pp_fr-5-2", "Qwen2.5-1.5B-Instruct"),
+        # ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-3B-Instruct-DPO-wmt24pp_fr-6-2", "Qwen2.5-3B-Instruct"),
+        # ("wmt14_fr", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_fr-4-2", "Qwen2.5-7B-Instruct"),
+        # ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Llama-3.2-1B-Instruct-DPO-wmt24pp_de-5-2", "Llama-3.2-1B-Instruct"),
+        # ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Llama-3.2-3B-Instruct-DPO-wmt24pp_de-5-2", "Llama-3.2-3B-Instruct"),
+        # ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Meta-Llama-3-8B-Instruct-DPO-wmt24pp_de-4-2", "Meta-Llama-3-8B-Instruct"),
+        # ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-1.5B-Instruct-DPO-wmt24pp_de-5-2", "Qwen2.5-1.5B-Instruct"),
+        # ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-3B-Instruct-DPO-wmt24pp_de-5-2", "Qwen2.5-3B-Instruct"),
+        # ("wmt19_de", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_de-4-2", "Qwen2.5-7B-Instruct"),
+        # ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Llama-3.2-1B-Instruct-DPO-wmt24pp_ru-5-2", "Llama-3.2-1B-Instruct"),
+        # ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/models/Llama-3.2-3B-Instruct-DPO-wmt24pp_ru-5-2", "Llama-3.2-3B-Instruct"),
+        # ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Meta-Llama-3-8B-Instruct-DPO-wmt24pp_ru-4-2", "Meta-Llama-3-8B-Instruct"),
+        # ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-1.5B-Instruct-DPO-wmt24pp_ru-6-1", "Qwen2.5-1.5B-Instruct"),
+        # ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-3B-Instruct-DPO-wmt24pp_ru-5-2", "Qwen2.5-3B-Instruct"),
+        # ("wmt19_ru", "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_models/Qwen2.5-7B-Instruct-DPO-wmt24pp_ru-4-1", "Qwen2.5-7B-Instruct"),
     ]
     for dataset_name, model_path, tokenizer_path in trained_model_paths:
         define_system_vars()
-        evaluate(model_path, dataset_name, tokenizer_path=tokenizer_path)
+        evaluate(
+            model_path, 
+            dataset_name, 
+            tokenizer_path="/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/{}".format(tokenizer_path)
+        )
     

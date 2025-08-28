@@ -27,7 +27,7 @@ def compute_cluster_scores(base_model_name, dataset_name, min_cluster_size=5, mi
     # Define the command to run the SRLM cluster scoring script
     command = [
         "nohup", "python", "src/SRLM/cluster_score.py",
-        "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/main_results/candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--output_path_scored_file", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--output_path_dpo_file", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--min_cluster_size", "{}".format(min_cluster_size),
@@ -47,7 +47,7 @@ def train(base_model_name, dataset_name, min_cluster_size=5, min_samples=2):
         params = yaml.safe_load(f)
     params["model_name_or_path"] = "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name)
     params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
-    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/models/{}-DPO-{}-{}-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples)
+    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/hyper_models/{}-DPO-{}-{}-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmpfile:
         yaml.dump(params, tmpfile, allow_unicode=True)
         temp_file_name = tmpfile.name
@@ -67,7 +67,7 @@ def evaluate(base_model_name, dataset_name, min_cluster_size=5, min_samples=2):
     command = [
         "nohup", "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
         "src/open_r1/evaluation.py",
-        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/models/{}-DPO-{}-{}-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples),
+        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/hyper_models/{}-DPO-{}-{}-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--output_dir", "",
         "--mode", "chat",

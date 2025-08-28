@@ -110,7 +110,13 @@ def main(script_args, training_args, model_args):
     # for split in dataset:
     #     if "messages" in dataset[split].column_names:
     #         dataset[split] = dataset[split].remove_columns("messages")
-    dataset = datasets.load_dataset("json", data_files=script_args.dataset_name)
+    try:
+        dataset = datasets.load_dataset("json", data_files=script_args.dataset_name)
+    except Exception as e:
+        os.makedirs(training_args.output_dir, exist_ok=True)
+        with open(os.path.join(training_args.output_dir, "error.txt"), "w") as f:
+            f.write(str(e))
+        quit()
     
     trainer = DPOTrainer(
         model = model,

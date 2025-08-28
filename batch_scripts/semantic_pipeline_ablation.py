@@ -27,9 +27,9 @@ def compute_cluster_scores(base_model_name, dataset_name, min_cluster_size=5, mi
     # Define the command to run the SRLM cluster scoring script
     command = [
         "nohup", "python", "src/SRLM/cluster_score.py",
-        "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
-        "--output_path_scored_file", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
-        "--output_path_dpo_file", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/main_results/candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--output_path_scored_file", "/mnt/{}/rubickjiang/codes/open-r1/data/ab_data/{}/{}_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--output_path_dpo_file", "/mnt/{}/rubickjiang/codes/open-r1/data/ab_data/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--min_cluster_size", "{}".format(min_cluster_size),
         "--min_samples", "{}".format(min_samples),
         "--filter_length", "5",
@@ -46,7 +46,7 @@ def train(base_model_name, dataset_name, min_cluster_size=5, min_samples=2):
     with open(yaml_file, 'r', encoding='utf-8') as f:
         params = yaml.safe_load(f)
     params["model_name_or_path"] = "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name)
-    params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
+    params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/ab_data/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
     params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/ab_models/{}-DPO-{}-{}-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmpfile:
         yaml.dump(params, tmpfile, allow_unicode=True)
@@ -62,7 +62,7 @@ def train(base_model_name, dataset_name, min_cluster_size=5, min_samples=2):
     subprocess.run(command, check=True)
     os.unlink(temp_file_name)  # Clean up the temporary file
 
-def evaluate(base_model_name, dataset_name, min_cluster_size=5, min_samples=2):
+def evaluate(base_model_name, dataset_name, min_cluster_size=5, min_samples=2, max_new_tokens=512):
     # Define the command to run the evaluation script
     command = [
         "nohup", "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
@@ -75,7 +75,7 @@ def evaluate(base_model_name, dataset_name, min_cluster_size=5, min_samples=2):
         "--bf16", "True",
         "--few_shot_cot", "False",
         "--per_device_eval_batch_size", "8",
-        "--max_new_tokens", "512",
+        "--max_new_tokens", "{}".format(max_new_tokens),
         "--model_max_length", "2048",
     ]
 
@@ -93,42 +93,24 @@ def define_system_vars():
 if __name__ == "__main__":
     # Example usage
     searching_pairs = [
-        ("Llama-3.2-1B-Instruct", "wmt24pp_de", 5, 2),
-        ("Llama-3.2-1B-Instruct", "wmt24pp_fr", 5, 2),
-        ("Llama-3.2-1B-Instruct", "wmt24pp_ru", 5, 2),
-        ("Llama-3.2-1B-Instruct", "wmt24pp_es", 6, 5),
-        ("Llama-3.2-1B-Instruct", "cnn_dailymail", 5, 2),
-        ("Llama-3.2-1B-Instruct", "pubmed_summary", 5, 2),
-        ("Llama-3.2-3B-Instruct", "wmt24pp_de", 5, 2),
-        ("Llama-3.2-3B-Instruct", "wmt24pp_fr", 5, 2),
-        ("Llama-3.2-3B-Instruct", "wmt24pp_ru", 5, 2),
-        ("Llama-3.2-3B-Instruct", "wmt24pp_es", 5, 2),
-        ("Llama-3.2-3B-Instruct", "cnn_dailymail", 5, 2),
-        ("Llama-3.2-3B-Instruct", "pubmed_summary", 4, 4),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_de", 4, 2),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_fr", 4, 2),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_ru", 4, 2),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_es", 4, 2),
-        ("Meta-Llama-3-8B-Instruct", "cnn_dailymail", 5, 1),
-        ("Meta-Llama-3-8B-Instruct", "pubmed_summary", 5, 2),
-        ("Qwen2.5-1.5B-Instruct", "wmt24pp_de", 5, 2),
         ("Qwen2.5-1.5B-Instruct", "wmt24pp_fr", 5, 2),
-        ("Qwen2.5-1.5B-Instruct", "wmt24pp_ru", 6, 1),
-        ("Qwen2.5-1.5B-Instruct", "wmt24pp_es", 5, 1),
-        ("Qwen2.5-1.5B-Instruct", "cnn_dailymail", 6, 6),
-        # ("Qwen2.5-1.5B-Instruct", "pubmed_summary", 4, 4),
-        ("Qwen2.5-3B-Instruct", "wmt24pp_de", 5, 2),
-        ("Qwen2.5-3B-Instruct", "wmt24pp_fr", 6, 2),
-        ("Qwen2.5-3B-Instruct", "wmt24pp_ru", 5, 2),
-        ("Qwen2.5-3B-Instruct", "wmt24pp_es", 6, 1),
-        # ("Qwen2.5-3B-Instruct", "cnn_dailymail", 6, 6),
-        # ("Qwen2.5-3B-Instruct", "pubmed_summary", 4, 4),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_de", 4, 2),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_fr", 4, 2),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_ru", 4, 1),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_es", 4, 2),
-        ("Qwen2.5-7B-Instruct", "cnn_dailymail", 6, 2),
-        ("Qwen2.5-7B-Instruct", "pubmed_summary", 5, 2),
+        ("Qwen2.5-1.5B-Instruct", "wmt24pp_ru", 5, 2),
+        ("Qwen2.5-1.5B-Instruct", "wmt24pp_es", 5, 2),
+        ("Qwen2.5-1.5B-Instruct", "cnn_dailymail", 5, 2),
+        ("Llama-3.2-1B-Instruct", "wmt24pp_es", 5, 2),
+        ("Qwen2.5-3B-Instruct", "wmt24pp_fr", 5, 2),
+        ("Qwen2.5-3B-Instruct", "wmt24pp_es", 5, 2),
+        ("Llama-3.2-3B-Instruct", "pubmed_summary", 5, 2),
+        ("Qwen2.5-7B-Instruct", "wmt24pp_de", 5, 2),
+        ("Qwen2.5-7B-Instruct", "wmt24pp_fr", 5, 2),
+        ("Qwen2.5-7B-Instruct", "wmt24pp_ru", 5, 2),
+        ("Qwen2.5-7B-Instruct", "wmt24pp_es", 5, 2),
+        ("Qwen2.5-7B-Instruct", "cnn_dailymail", 5, 2),
+        ("Meta-Llama-3-8B-Instruct", "wmt24pp_de", 5, 2),
+        ("Meta-Llama-3-8B-Instruct", "wmt24pp_fr", 5, 2),
+        ("Meta-Llama-3-8B-Instruct", "wmt24pp_ru", 5, 2),
+        ("Meta-Llama-3-8B-Instruct", "wmt24pp_es", 5, 2),
+        ("Meta-Llama-3-8B-Instruct", "cnn_dailymail", 5, 2),
     ]
     for base_model_name, dataset_name, min_cluster_size, min_samples in searching_pairs:
         try:
@@ -150,7 +132,8 @@ if __name__ == "__main__":
                 base_model_name, 
                 dataset_name, 
                 min_cluster_size=min_cluster_size, 
-                min_samples=min_samples
+                min_samples=min_samples,
+                max_new_tokens=800 if base_model_name == "Qwen2.5-7B-Instruct" else 512
             )
         except Exception as e:
             print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")

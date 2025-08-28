@@ -135,6 +135,28 @@ def get_cluster_reward_func(emb_tokenizer, emb_model):
         return record_cosine_score
     return cluster_score
 
+def entropy_reward(prompts, completions: list[str], **kwargs) -> list[Optional[float]]:
+    def _extract_pred(txt):
+        pattern = r'boxed\{([^}]*)\}'
+        results = re.findall(pattern, txt)
+        if results:
+            ret = results[0]
+            # ret = ret.replace("\"", "")
+            # ret = ret.replace("\'", "")
+            ret = ret.strip()
+            return ret
+        else:
+            return None
+    def _is_valid_answer(txt):
+        if txt is None or txt == "None":
+            return False
+        if not txt.isascii():
+            return False
+        return True
+    extracted_candidates = [_extract_pred(comp) for comp in completions]
+    reward = [1 if _is_valid_answer(cand) else None for cand in extracted_candidates]
+    return reward
+
 
 def get_reward_funcs(script_args) -> list[Callable]:
     emb_tokenizer = transformers.AutoTokenizer.from_pretrained(
@@ -148,6 +170,7 @@ def get_reward_funcs(script_args) -> list[Callable]:
     REWARD_FUNCS_REGISTRY = {
         "accuracy": accuracy_reward,
         "cluster_score": get_cluster_reward_func(emb_tokenizer=emb_tokenizer, emb_model=emb_model),
+        "entropy": entropy_reward
     }
     reward_funcs = [REWARD_FUNCS_REGISTRY[func] for func in script_args.reward_funcs]
 

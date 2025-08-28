@@ -34,21 +34,23 @@ import torch
 logger = logging.getLogger("MainLogger")
 
 class MyGRPOTrainer(GRPOTrainer):
-    def __init__(self, *args, emb_tokenizer=None, emb_model=None, **kwargs):
+    def __init__(self, *args, reward_type=None, emb_tokenizer=None, emb_model=None, **kwargs):
         super().__init__(*args, **kwargs)
         # self.emb_tokenizer = emb_tokenizer
         # self.emb_model = emb_model.to(self.accelerator.device)
         # self.emb_model.eval()
-        for i, reward_func in enumerate(self.reward_funcs):
-            self.reward_funcs[i] = update_wrapper(
-                    partial(
-                        reward_func,
-                        # emb_tokenizer=self.emb_tokenizer,
-                        # emb_model=self.emb_model,
-                        accelerator=self.accelerator,
-                    ),
-                    reward_func
-                )
+        if reward_type == "cluster_score":
+            for i, reward_func in enumerate(self.reward_funcs):
+                self.reward_funcs[i] = update_wrapper(
+                        partial(
+                            reward_func,
+                            # emb_tokenizer=self.emb_tokenizer,
+                            # emb_model=self.emb_model,
+                            accelerator=self.accelerator,
+                        ),
+                        reward_func
+                    )
+        self.reward_type = reward_type
     def _compute_loss(self, model, inputs):
         # processing nan
         def nanmin(tensor: torch.Tensor) -> torch.Tensor:
@@ -67,6 +69,7 @@ class MyGRPOTrainer(GRPOTrainer):
         logits_to_keep = completion_ids.size(1)  # we only need to compute the logits for the completion tokens
 
         per_token_logps = self._get_per_token_logps(model, input_ids, attention_mask, logits_to_keep)
+        traj_entropy = torch.sum(per_token_logps.detach(), dim=-1)
 
         # Compute the KL divergence between the model and the reference model
         if self.beta != 0.0:
@@ -88,16 +91,34 @@ class MyGRPOTrainer(GRPOTrainer):
         advantages = inputs["advantages"]
         min_advs = advantages.min()
         advantage_mask = torch.isclose(advantages, min_advs, atol=1e-6)
-        valid_element = advantages[~advantage_mask]
-        if valid_element.numel() > 0:
-            valid_mean = valid_element.mean()
-            valid_std = valid_element.std()
+        if self.reward_type == "entropy":
+            advantages = advantages * traj_entropy # change 0,1 to traj_entropy
+            valid_element = advantages[~advantage_mask]
+            if valid_element.numel() > 0:
+                valid_mean = valid_element.mean()
+                valid_std = valid_element.std()
+            else:
+                valid_mean = torch.tensor(0.0, device=valid_element.device)
+                valid_std = torch.tensor(1.0, device=valid_element.device)
+                advantage_mask = torch.zeros_like(advantages, dtype=torch.bool)
+            advantages = (advantages - valid_mean) / (valid_std + 1e-4)
+            advantages = advantages.detach()
+            print(advantages)
+            quit()
+
+        elif self.reward_type == "cluster_score":
+            valid_element = advantages[~advantage_mask]
+            if valid_element.numel() > 0:
+                valid_mean = valid_element.mean()
+                valid_std = valid_element.std()
+            else:
+                valid_mean = torch.tensor(0.0, device=valid_element.device)
+                valid_std = torch.tensor(1.0, device=valid_element.device)
+                advantage_mask = torch.zeros_like(advantages, dtype=torch.bool)
+            advantages = (advantages - valid_mean) / (valid_std + 1e-4)
+            advantages = advantages.detach()
         else:
-            valid_mean = torch.tensor(0.0, device=valid_element.device)
-            valid_std = torch.tensor(1.0, device=valid_element.device)
-            advantage_mask = torch.zeros_like(advantages, dtype=torch.bool)
-        advantages = (advantages - valid_mean) / (valid_std + 1e-4)
-        advantages = advantages.detach()
+            raise ValueError(f"Unknown reward type: {self.reward_type}")
 
         # When using num_iterations == 1 and steps_per_generation <= gradient_accumulation_steps
         # old_per_token_logps == per_token_logps, so we can skip it's computation
@@ -254,6 +275,7 @@ def main(script_args, training_args, model_args):
         reward_funcs=reward_funcs,
         # emb_tokenizer=emb_tokenizer,
         # emb_model=emb_model,
+        reward_type=script_args.reward_funcs[0],
         args=training_args,
         train_dataset=dataset["train"],
         eval_dataset=(dataset["test"] if training_args.eval_strategy != "no" else None),

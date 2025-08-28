@@ -17,6 +17,7 @@ def compute_entropy_scores(base_model_name, dataset_name):
         "--few_shot_cot", "False",
         "--batch_size", "2",
         "--max_model_len", "2048",
+        "--use_format_filter", "True",
         "--seed", "42"
     ]
 
@@ -46,7 +47,7 @@ def entropy_train(base_model_name, dataset_name):
     subprocess.run(command, check=True)
     os.unlink(temp_file_name)  # Clean up the temporary file
 
-def entropy_evaluate(base_model_name, dataset_name):
+def entropy_evaluate(base_model_name, dataset_name, max_new_tokens=512):
     # Define the command to run the evaluation script
     command = [
         "nohup", "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
@@ -59,7 +60,7 @@ def entropy_evaluate(base_model_name, dataset_name):
         "--bf16", "True",
         "--few_shot_cot", "False",
         "--per_device_eval_batch_size", "8",
-        "--max_new_tokens", "512",
+        "--max_new_tokens", "{}".format(str(max_new_tokens)),
         "--model_max_length", "2048",
     ]
 
@@ -157,23 +158,17 @@ if __name__ == "__main__":
     # Example usage
     searching_pairs = [
         ("Qwen2.5-1.5B-Instruct", "wmt24pp_es", 5, 2),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_de", 5, 2),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_es", 5, 2),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_fr", 5, 2),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_ru", 5, 2),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_de", 5, 2),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_es", 5, 2),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_fr", 5, 2),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_ru", 5, 2),
+        ("Llama-3.2-3B-Instruct", "pubmed_summary", 5, 2)
     ]
     for base_model_name, dataset_name, min_cluster_size, min_samples in searching_pairs:
         try:
             define_system_vars()
+            
             generate_sr_candidates(base_model_name, dataset_name)
             compute_entropy_scores(base_model_name, dataset_name)
             entropy_train(base_model_name, dataset_name)
-            entropy_evaluate(base_model_name, dataset_name)
-
+            entropy_evaluate(base_model_name, dataset_name, max_new_tokens=800 if base_model_name=="Qwen2.5-7B-Instruct" else 512)
+            
             compute_cluster_scores(
                 base_model_name,
                 dataset_name,

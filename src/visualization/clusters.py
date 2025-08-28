@@ -80,7 +80,7 @@ def draw_clusters(source, candidates):
     score_max = max(visual_data["scores"])
     score_min = min(visual_data["scores"])
     visual_data = pd.DataFrame(visual_data)
-    sns.set_theme(style="whitegrid")
+    sns.set_theme(style="white")
     palette = sns.light_palette("red", n_colors=1, reverse=True, as_cmap=True)
     scatter = plt.scatter(
         visual_data["x"],
@@ -89,8 +89,8 @@ def draw_clusters(source, candidates):
         s = 50,
         alpha = 0.6,
         cmap = palette,
-        vmin = 3.2,    # 例如：你关心的最小值
-        vmax = 3.5,   # 例如：你关心的最大值，过滤掉大于50的极端值
+        vmin = 2,    # 例如：你关心的最小值
+        vmax = 3,   # 例如：你关心的最大值，过滤掉大于50的极端值
     )
     plt.colorbar(scatter, label="Score")
     plt.savefig("test.png")
@@ -114,6 +114,6 @@ def extract_data(obj):
 
 with jsonlines.open("/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/Qwen2.5-1.5B-Instruct/wmt24pp_fr_output_64.jsonl", "r") as reader:
     objs = [obj for obj in reader]
-    prompt, candidates = extract_data(objs[5])
+    prompt, candidates = extract_data(objs[6])
     draw_clusters(prompt, candidates)
 

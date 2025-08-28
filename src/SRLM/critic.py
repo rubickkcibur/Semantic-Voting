@@ -103,20 +103,49 @@ def start_generation(args, n_workers = 8):
             fw.write(obj)
 
     def make_contrast_pair(obj):
+        def extract_pred(txt):
+            pattern = r'boxed\{([^}]*)\}'
+            results = re.findall(pattern, txt)
+            if results:
+                ret = results[0]
+                ret = ret.strip()
+                return ret
+            else:
+                return None
+        
         prompt = obj["prompt"]
         outputs = obj["outputs"]
         scores = obj["scores"]
-        max_score = max(scores)
-        if max_score < 0:
-            return None
-        chosen_ids = [i for i, score in enumerate(scores) if score == max_score]
-        chosen_id = random.choice(chosen_ids)
-        chosen = outputs[chosen_id]
+        invalid_index = [i for i, output in enumerate(outputs) if extract_pred(output) is None]
+        invalid_index = set(invalid_index)
+        if args.use_format_filter:
+            scores_for_max = [-1e6 if i in invalid_index else s for i, s in enumerate(scores)]
+            max_score = max(scores_for_max)
+            if max_score < 0:
+                return None
+            chosen_ids = [i for i, s in enumerate(scores_for_max) if s == max_score]
+            chosen_id = random.choice(chosen_ids)
+            # chosen_id = chosen_ids[-1]
+            chosen = outputs[chosen_id]
 
-        rej_score = min([1e6 if s < 0 else s for s in scores])
-        rej_ids = [i for i, score in enumerate(scores) if score == rej_score]
-        rej_id = random.choice(rej_ids)
-        rejected = outputs[rej_id]
+            scores_for_min = [1e6 if i in invalid_index else s for i, s in enumerate(scores)]
+            min_score = min(scores_for_min)
+            rej_ids = [i for i, s in enumerate(scores_for_min) if s == min_score]
+            rej_id = random.choice(rej_ids)
+            # rej_id = rej_ids[-1]
+            rejected = outputs[rej_id]
+        else:
+            max_score = max(scores)
+            if max_score < 0:
+                return None
+            chosen_ids = [i for i, score in enumerate(scores) if score == max_score]
+            chosen_id = random.choice(chosen_ids)
+            chosen = outputs[chosen_id]
+
+            rej_score = min([1e6 if s < 0 else s for s in scores])
+            rej_ids = [i for i, score in enumerate(scores) if score == rej_score]
+            rej_id = random.choice(rej_ids)
+            rejected = outputs[rej_id]
         return {
             "prompt": prompt,
             "chosen": chosen,
@@ -205,21 +234,33 @@ if __name__ == "__main__":
         default=42,
         help="The random seed for reproducibility (default: 114514)",
     )
+    parser.add_argument(
+        "--n_workers",
+        type=int,
+        default=8,
+        help="The number of workers to use for data loading (default: 8)",
+    )
+    parser.add_argument(
+        "--use_format_filter",
+        type=bool,
+        default=False,
+        help="Whether to use format filter (default: False)",
+    )
+
     args = parser.parse_args()
 
-    seed = int(args.seed)
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    torch.cuda.manual_seed(seed)
-    os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-    os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
-    torch.use_deterministic_algorithms(True)
-    #Enable CUDNN deterministic mode
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    np.random.seed(seed)
+    # seed = int(args.seed)
+    # os.environ["PYTHONHASHSEED"] = str(seed)
+    # torch.cuda.manual_seed(seed)
+    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
+    # os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+    # torch.use_deterministic_algorithms(True)
+    # #Enable CUDNN deterministic mode
+    # torch.backends.cudnn.deterministic = True
+    # torch.backends.cudnn.benchmark = False
+    # torch.manual_seed(seed)
+    # torch.cuda.manual_seed_all(seed)
+    # np.random.seed(seed)
     random.seed(time.time())
 
-    start_generation(args, n_workers = 8)
-        
+    start_generation(args, n_workers = args.n_workers)

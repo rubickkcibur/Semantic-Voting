@@ -77,15 +77,13 @@ def extract_sentence_pairs(path):
 
 def compute_sentence_embeddings(sentence_pairs):
     device = "cuda:0"
-    tokenizer = transformers.AutoTokenizer.from_pretrained(
-        "/mnt/{}/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased".format(MACLAB_NAS_NAME),
-        padding_side="left",
-    )
-    model = transformers.AutoModel.from_pretrained(
-        "/mnt/{}/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased".format(MACLAB_NAS_NAME),
-        torch_dtype=torch.float32
-    ).to(device)
+    tokenizer = transformers.AutoTokenizer.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/deberta-sentence-transformer')
+    model = transformers.AutoModel.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/deberta-sentence-transformer').to(device)
     model.eval()
+    def mean_pooling(model_output, attention_mask):
+        token_embeddings = model_output[0] #First element of model_output contains all token embeddings
+        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+        return torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
     with tqdm.tqdm(total=len(sentence_pairs), desc="Computing sentence embeddings") as pbar:
         for item in sentence_pairs:
             pbar.update(1)
@@ -96,15 +94,14 @@ def compute_sentence_embeddings(sentence_pairs):
                 item["embeddings"] = []
                 item["valid_index"] = []
             else:
-                encodings = tokenizer(
-                    inputs,
-                    return_tensors="pt",
-                    padding='longest',
-                    truncation=True,
-                    max_length=512,).to(device)
+                encodings = tokenizer(inputs, padding=True, truncation=True, return_tensors='pt', max_length=512).to(device)
                 with torch.no_grad():
                     output = model(**encodings)
-                    emb = torch.nn.functional.normalize(output.last_hidden_state[:, 0, :], p=2, dim=1)
+                    emb = torch.nn.functional.normalize(
+                        mean_pooling(output, encodings['attention_mask']), 
+                        p=2, 
+                        dim=1
+                    )
                     emb = emb.detach().cpu().double().numpy()
                 item["embeddings"] = emb
                 item["valid_index"] = valid_index
@@ -153,7 +150,6 @@ def compute_cluster_scores(sentence_pairs, args):
                 original_idx = valid_index[idx_v]
                 record_cosine_score[original_idx] = cosine
             item["cosine_scores"] = record_cosine_score
-    os.makedirs(os.path.dirname(args.output_path_scored_file), exist_ok=True)
     with jsonlines.open(args.output_path_scored_file, "w") as fw:
         for item in sentence_pairs:
             fw.write({
@@ -163,7 +159,6 @@ def compute_cluster_scores(sentence_pairs, args):
                 "cosine_scores": item["cosine_scores"],
             })
     if args.output_path_dpo_file is not None and len(args.output_path_dpo_file) > 0:
-        os.makedirs(os.path.dirname(args.output_path_dpo_file), exist_ok=True)
         with jsonlines.open(args.output_path_dpo_file, "w") as fw:
             for item in sentence_pairs:
                 if all(s is None for s in item["cosine_scores"]):

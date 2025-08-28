@@ -54,6 +54,10 @@ class ModelArguments:
         default=2048,
         metadata={"help": "The maximum length of the model input (default: 2048)"}
     )
+    use_format_filter: bool = field(
+        default=False,
+        metadata={"help": "Whether to use format filter (default: False)"}
+    )
     # seed: int = field(
     #     default=42,
     #     metadata={"help": "The random seed for reproducibility (default: 42)"}
@@ -72,14 +76,12 @@ class TrainingArguments(transformers.TrainingArguments):
 class LoraArguments:
     q_lora: bool = False
 
-def make_contrast_pair(obj):
+def make_contrast_pair(obj, use_format_filter=False):
     def extract_pred(txt):
         pattern = r'boxed\{([^}]*)\}'
         results = re.findall(pattern, txt)
         if results:
             ret = results[0]
-            # ret = ret.replace("\"", "")
-            # ret = ret.replace("\'", "")
             ret = ret.strip()
             return ret
         else:
@@ -89,13 +91,21 @@ def make_contrast_pair(obj):
     scores = obj["scores"]
     invalid_id = [i for i, output in enumerate(outputs) if extract_pred(output) is None]
     invalid_id = set(invalid_id)
-    # scores_for_max = [-1e15 if i in invalid_id else s for i, s in enumerate(scores)]
-    max_score = max(scores)
-    chosen_id = scores.index(max_score)
+    if use_format_filter:
+        scores_for_max = [-1e15 if i in invalid_id else s for i, s in enumerate(scores)]
+        max_score = max(scores_for_max)
+        chosen_id = scores_for_max.index(max_score)
+    else:
+        max_score = max(scores)
+        chosen_id = scores.index(max_score)
     chosen = outputs[chosen_id]
-    # scores_for_min = [1e15 if i in invalid_id else s for i, s in enumerate(scores)]
-    rej_score = min(scores)
-    rej_id = scores.index(rej_score)
+    if use_format_filter:
+        scores_for_min = [1e15 if i in invalid_id else s for i, s in enumerate(scores)]
+        min_score = min(scores_for_min)
+        rej_id = scores_for_min.index(min_score)
+    else:
+        min_score = min(scores)
+        rej_id = scores.index(min_score)
     rejected = outputs[rej_id]
     return {
         "prompt": prompt,

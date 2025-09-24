@@ -2,6 +2,7 @@ import os
 import subprocess
 import tempfile
 import yaml
+TRY_ID=0
 
 def compute_entropy_scores(base_model_name, dataset_name):
     # Define the command to run the SRLM cluster scoring script
@@ -11,9 +12,9 @@ def compute_entropy_scores(base_model_name, dataset_name):
         "--model_name_or_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--mode", "chat",
-        "--candidates_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
-        "--scored_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_entropy_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
-        "--dpo_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_entropy_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--candidates_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID, dataset_name),
+        "--scored_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/{}_entropy_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID, dataset_name),
+        "--dpo_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/{}_entropy_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID, dataset_name),
         "--few_shot_cot", "False",
         "--batch_size", "2",
         "--max_model_len", "2048",
@@ -31,8 +32,8 @@ def entropy_train(base_model_name, dataset_name):
     with open(yaml_file, 'r', encoding='utf-8') as f:
         params = yaml.safe_load(f)
     params["model_name_or_path"] = "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name)
-    params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_entropy_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
-    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-entropy".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
+    params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/{}_entropy_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID, dataset_name)
+    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-entropy-try{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, TRY_ID)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmpfile:
         yaml.dump(params, tmpfile, allow_unicode=True)
         temp_file_name = tmpfile.name
@@ -52,7 +53,7 @@ def entropy_evaluate(base_model_name, dataset_name, max_new_tokens=512):
     command = [
         "nohup", "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
         "src/open_r1/evaluation.py",
-        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-entropy".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-entropy-try{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, TRY_ID),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--output_dir", "",
         "--mode", "chat",
@@ -73,7 +74,7 @@ def generate_sr_candidates(base_model_name, dataset_name):
         "nohup", "python", "src/SRLM/generate.py",
         "--model_name_or_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--tokenizer_path", "",
-        "--output_dir", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
+        "--output_dir", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID),
         "--mode", "chat",
         "--dataset_name", dataset_name,
         "--few_shot_cot", "False",
@@ -91,9 +92,9 @@ def compute_cluster_scores(base_model_name, dataset_name, min_cluster_size=5, mi
     # Define the command to run the SRLM cluster scoring script
     command = [
         "nohup", "python", "src/SRLM/cluster_score.py",
-        "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
-        "--output_path_scored_file", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
-        "--output_path_dpo_file", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID, dataset_name),
+        "--output_path_scored_file", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/{}_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID, dataset_name),
+        "--output_path_dpo_file", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID, dataset_name),
         "--min_cluster_size", "{}".format(min_cluster_size),
         "--min_samples", "{}".format(min_samples),
         "--filter_length", "5",
@@ -110,8 +111,8 @@ def train(base_model_name, dataset_name, min_cluster_size=5, min_samples=2):
     with open(yaml_file, 'r', encoding='utf-8') as f:
         params = yaml.safe_load(f)
     params["model_name_or_path"] = "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name)
-    params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name)
-    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-{}-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples)
+    params["dataset_name"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/try{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, TRY_ID, dataset_name)
+    params["output_dir"] = "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-{}-{}-try{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples, TRY_ID)
     with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as tmpfile:
         yaml.dump(params, tmpfile, allow_unicode=True)
         temp_file_name = tmpfile.name
@@ -131,7 +132,7 @@ def evaluate(base_model_name, dataset_name, min_cluster_size=5, min_samples=2, m
     command = [
         "nohup", "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
         "src/open_r1/evaluation.py",
-        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-{}-{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples),
+        "--model_name_or_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_models/{}-DPO-{}-{}-{}-try{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name, min_cluster_size, min_samples, TRY_ID),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--output_dir", "",
         "--mode", "chat",
@@ -156,39 +157,40 @@ def define_system_vars():
 
 if __name__ == "__main__":
     # Example usage
-    searching_pairs = [
-        ("Qwen2.5-1.5B-Instruct", "wmt24pp_es", 5, 2),
-        ("Llama-3.2-3B-Instruct", "pubmed_summary", 5, 2)
-    ]
-    for base_model_name, dataset_name, min_cluster_size, min_samples in searching_pairs:
-        try:
-            define_system_vars()
-            
-            generate_sr_candidates(base_model_name, dataset_name)
-            compute_entropy_scores(base_model_name, dataset_name)
-            entropy_train(base_model_name, dataset_name)
-            entropy_evaluate(base_model_name, dataset_name, max_new_tokens=800 if base_model_name=="Qwen2.5-7B-Instruct" else 512)
-            
-            compute_cluster_scores(
-                base_model_name,
-                dataset_name,
-                min_cluster_size=min_cluster_size,
-                min_samples=min_samples
-            )
-            train(
-                base_model_name,
-                dataset_name,
-                min_cluster_size=min_cluster_size,
-                min_samples=min_samples
-            )
-            evaluate(
-                base_model_name,
-                dataset_name,
-                min_cluster_size=min_cluster_size,
-                min_samples=min_samples,
-                max_new_tokens=800 if base_model_name=="Qwen2.5-7B-Instruct" else 512
-            )
-        except Exception as e:
-            print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")
-            quit()
-            continue
+    for try_id in range(15):
+        TRY_ID = try_id
+        searching_pairs = [
+            # ("Qwen2.5-1.5B-Instruct", "wmt24pp_es", 5, 2),
+            ("Llama-3.2-1B-Instruct", "wmt24pp_ru", 5, 2)
+        ]
+        for base_model_name, dataset_name, min_cluster_size, min_samples in searching_pairs:
+            try:
+                define_system_vars()
+                generate_sr_candidates(base_model_name, dataset_name)
+                compute_cluster_scores(
+                    base_model_name,
+                    dataset_name,
+                    min_cluster_size=min_cluster_size,
+                    min_samples=min_samples
+                )
+                train(
+                    base_model_name,
+                    dataset_name,
+                    min_cluster_size=min_cluster_size,
+                    min_samples=min_samples
+                )
+                evaluate(
+                    base_model_name,
+                    dataset_name,
+                    min_cluster_size=min_cluster_size,
+                    min_samples=min_samples,
+                    max_new_tokens=800 if base_model_name=="Qwen2.5-7B-Instruct" else 512
+                )
+                compute_entropy_scores(base_model_name, dataset_name)
+                entropy_train(base_model_name, dataset_name)
+                entropy_evaluate(base_model_name, dataset_name, max_new_tokens=800 if base_model_name=="Qwen2.5-7B-Instruct" else 512)
+                
+            except Exception as e:
+                print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")
+                quit()
+                continue

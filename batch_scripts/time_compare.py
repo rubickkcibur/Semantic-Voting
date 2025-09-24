@@ -11,7 +11,7 @@ def compute_self_scores(base_model_name, dataset_name):
         "--model_name_or_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--mode", "chat",
-        "--candidates_path", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--candidates_path", "/mnt/{}/rubickjiang/codes/open-r1/data/main_results/candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--scored_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_self_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--dpo_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_self_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--few_shot_cot", "False",
@@ -33,7 +33,7 @@ def compute_entropy_scores(base_model_name, dataset_name):
         "--model_name_or_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--mode", "chat",
-        "--candidates_path", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--candidates_path", "/mnt/{}/rubickjiang/codes/open-r1/data/main_results/candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--scored_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_entropy_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--dpo_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_entropy_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--few_shot_cot", "False",
@@ -49,7 +49,7 @@ def compute_cluster_scores(base_model_name, dataset_name, min_cluster_size=5, mi
     # Define the command to run the SRLM cluster scoring script
     command = [
         "nohup", "python", "src/SRLM/cluster_score.py",
-        "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/SR_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--candidate_path", "/mnt/{}/rubickjiang/codes/open-r1/data/main_results/candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--output_path_scored_file", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--output_path_dpo_file", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--min_cluster_size", "{}".format(min_cluster_size),
@@ -72,36 +72,42 @@ def define_system_vars():
 
 if __name__ == "__main__":
     # Example usage
-    searching_pairs = [
-        ("Llama-3.2-1B-Instruct", "wmt24pp_zh"),
-        ("Llama-3.2-3B-Instruct", "wmt24pp_zh"),
-        ("Meta-Llama-3-8B-Instruct", "wmt24pp_zh"),
-        ("Qwen2.5-1.5B-Instruct", "wmt24pp_zh"),
-        ("Qwen2.5-3B-Instruct", "wmt24pp_zh"),
-        ("Qwen2.5-7B-Instruct", "wmt24pp_zh"),
-    ]
-    for base_model_name, dataset_name in searching_pairs:
-        try:
-            define_system_vars()
 
-            start = time.time()
-            compute_entropy_scores(base_model_name, dataset_name)
-            print("Time Recoded: Entropy Scores Computation for {}: {:.2f} seconds".format(base_model_name, time.time() - start))
+    for base_model_name in [
+        "Llama-3.2-1B-Instruct",
+        "Llama-3.2-3B-Instruct",
+        "Meta-Llama-3-8B-Instruct",
+        "Qwen2.5-1.5B-Instruct",
+        "Qwen2.5-3B-Instruct",
+        "Qwen2.5-7B-Instruct",
+    ]:
+        for dataset_name in [
+            "wmt24pp_de",
+            "wmt24pp_fr",
+            "wmt24pp_ru",
+            "wmt24pp_es",
+        ]:
+            try:
+                define_system_vars()
 
-            start = time.time()
-            compute_cluster_scores(
-                base_model_name,
-                dataset_name,
-                min_cluster_size=5,
-                min_samples=2
-            )
-            print("Time Recoded: Cluster Scores Computation for {}: {:.2f} seconds".format(base_model_name, time.time() - start))
+                start = time.time()
+                compute_entropy_scores(base_model_name, dataset_name)
+                print("Time Recoded: Entropy Scores Computation for {} on {}: {:.2f} seconds".format(base_model_name, dataset_name, time.time() - start))
 
-            start = time.time()
-            compute_self_scores(base_model_name, dataset_name)
-            print("Time Recoded: Self Scores Computation for {}: {:.2f} seconds".format(base_model_name, time.time() - start))
+                start = time.time()
+                compute_cluster_scores(
+                    base_model_name,
+                    dataset_name,
+                    min_cluster_size=5,
+                    min_samples=2
+                )
+                print("Time Recoded: Cluster Scores Computation for {} on {}: {:.2f} seconds".format(base_model_name, dataset_name, time.time() - start))
 
-        except Exception as e:
-            print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")
-            quit()
-            continue
+                start = time.time()
+                compute_self_scores(base_model_name, dataset_name)
+                print("Time Recoded: Self Scores Computation for {} on {}: {:.2f} seconds".format(base_model_name, dataset_name, time.time() - start))
+
+            except Exception as e:
+                print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")
+                quit()
+                continue

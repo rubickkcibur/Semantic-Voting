@@ -1,4 +1,4 @@
-from data_processor import gsm8k, wmt19_de, wmt19_ru, wmt14_es, wmt14_fr, wmt24pp_zh, wmt24pp_de, wmt24pp_fr, wmt24pp_ru, wmt24pp_es, cnn_dailymail, xsum, pubmed_summary
+from data_processor import gsm8k, wmt19_de, wmt19_ru, wmt14_es, wmt14_fr, wmt24pp_zh, wmt24pp_de, wmt24pp_fr, wmt24pp_ru, wmt24pp_es, cnn_dailymail, xsum, pubmed_summary, lima, alpaca_eval
 from transformers import PreTrainedTokenizer
 
 def load_custom_dataset(dataset_name: str, tokenizer: PreTrainedTokenizer = None, cot: bool = False, apply_chat_template: bool = False):
@@ -16,6 +16,8 @@ def load_custom_dataset(dataset_name: str, tokenizer: PreTrainedTokenizer = None
         "cnn_dailymail": cnn_dailymail.load_data,
         "xsum": xsum.load_data,
         "pubmed_summary": pubmed_summary.load_data,
+        "lima": lima.load_data,
+        "alpaca_eval": alpaca_eval.load_data,
     }
     if dataset_name not in dataset_registers:
         raise ValueError(f"Dataset {dataset_name} is not registered.")
@@ -51,6 +53,8 @@ def get_metrics(dataset_name: str):
         "cnn_dailymail": cnn_dailymail.metric,
         "xsum": xsum.metric,
         "pubmed_summary": pubmed_summary.metric,
+        "lima": lima.metric,
+        "alpaca_eval": alpaca_eval.metric,
     }
     if dataset_name not in metrics_registers:
         raise ValueError(f"Dataset {dataset_name} is not registered.")
@@ -70,4 +74,6 @@ REPORT_METRICS = {
     "cnn_dailymail": cnn_dailymail.REPORT_METRICS,
     "xsum": xsum.REPORT_METRICS,
     "pubmed_summary": pubmed_summary.REPORT_METRICS,
+    "lima": lima.REPORT_METRICS,
+    "alpaca_eval": alpaca_eval.REPORT_METRICS,
 }

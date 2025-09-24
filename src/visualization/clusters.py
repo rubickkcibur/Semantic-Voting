@@ -2,13 +2,14 @@ import transformers
 import torch
 import jsonlines
 from external_lib import mt5_model
-import umap
+# import umap
 import re
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.cluster import MeanShift, estimate_bandwidth
 
 def draw_clusters(source, candidates):
     device = "cuda:0"
@@ -66,6 +67,7 @@ def draw_clusters(source, candidates):
         output = model(**encodings)
         emb = torch.nn.functional.normalize(output.last_hidden_state[:, 0, :], p=2, dim=1)
         emb = emb.detach().cpu().float().numpy()
+    
     reducer = umap.UMAP(n_neighbors=5, metric='cosine', n_components=2, random_state=42, min_dist = 0.5)
     emb_umap = reducer.fit_transform(emb)
     scaler = MinMaxScaler()

@@ -14,8 +14,8 @@ export TORCH_USE_CUDA_DSA=1
 # export CUDA_VISIBLE_DEVICES=0
 # what matters: model_name_or_path, peft_model_path, eval_data_path, per_device_eval_batch_size(fixed)
 export SEED=42
-python src/SRLM/cluster_score.py \
-    --candidate_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/cnn_dailymail_output_64.jsonl" \
+python src/SRLM/cluster_score_solo.py \
+    --candidate_path "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/main_results/candidates/Llama-3.2-1B-Instruct/cnn_dailymail_output_64.jsonl" \
     --output_path_scored_file "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/cnn_dailymail_scored.jsonl" \
     --output_path_dpo_file "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/SR_candidates/cnn_dailymail_dpo.jsonl" \
     --min_cluster_size 5 \

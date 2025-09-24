@@ -54,10 +54,6 @@ def extract_sentence_pairs(path):
             assert "Here is the news report:\n'" in prompt
             prompt = prompt.split("Here is the news report:\n'")[-1].strip()
             return prompt
-        elif "lima" in path:
-            return txt.strip()
-        elif "alpaca_eval" in path:
-            return txt.strip()
         else:
             assert "'\nPlease think about how to translate step by step." in txt
             prompt = txt.split("'\nPlease think about how to translate step by step.")[0].strip()
@@ -70,10 +66,7 @@ def extract_sentence_pairs(path):
         for item in f:
             prompt = extract_prompt(item["prompt"], path)
             candidates = item["outputs"]
-            if "lima" in path or "alpaca_eval" in path:
-                preds = candidates
-            else:
-                preds = [extract_pred(candidate) for candidate in candidates]
+            preds = [extract_pred(candidate) for candidate in candidates]
             extracted_data.append({
                 "original_prompt": item["prompt"],
                 "original_candidates": item["outputs"],
@@ -118,72 +111,30 @@ def compute_sentence_embeddings(sentence_pairs):
     return sentence_pairs
 
 def compute_cluster_scores(sentence_pairs, args):
-    with tqdm.tqdm(total=len(sentence_pairs), desc="Compute Cluster Scores") as pbar:
+    if args.output_path_dpo_file is not None and len(args.output_path_dpo_file) > 0:
+        os.makedirs(os.path.dirname(args.output_path_dpo_file), exist_ok=True)
+    with tqdm.tqdm(total=len(sentence_pairs), desc="Compute Cluster Scores") as pbar, jsonlines.open(args.output_path_dpo_file, "w") as fw:
         for item in sentence_pairs:
             pbar.update(1)
             valid_index = item["valid_index"]
             if len(valid_index) < args.filter_length:
                 item["cosine_scores"] = [None] * len(item["extracted_candidates"])
                 continue
-            emb = item["embeddings"]
-            sim_matrix = cosine_similarity(emb)
-            clusteror = hdbscan.HDBSCAN(
-                metric='precomputed', 
-                min_cluster_size = args.min_cluster_size, 
-                min_samples = args.min_samples, 
-                provide_probabilities = True, 
-                allow_single_cluster = True,
-                # prediction_data = True
-            )
-            labels = clusteror.fit_predict(sim_matrix)
-            clusters = dict()
-            for label_idx, c in enumerate(labels):
-                if c < 0:
-                    continue
-                if c not in clusters:
-                    clusters[c] = []
-                clusters[c].append(label_idx)
-            max_size = max([len(v) for (k, v) in clusters.items()])
-            max_c_name = -1
-            for k in clusters.keys():
-                if len(clusters[k]) == max_size: 
-                    max_c_name = k
-            main_cluster = clusters[max_c_name]
-            if len(main_cluster) < args.filter_length:
-                item["cosine_scores"] = [None] * len(item["extracted_candidates"])
-                continue
-            featured_cluster = [emb[idx] for idx in main_cluster]
-            center_feature = np.stack(featured_cluster).mean(axis=0) / np.linalg.norm(np.stack(featured_cluster).mean(axis=0))
-            cos_sim_cluster = [np.dot(center_feature, f)/ (np.linalg.norm(center_feature) * np.linalg.norm(f)) for f in featured_cluster]
-            record_cosine_score = [None] * len(item["extracted_candidates"])
-            for idx_v, cosine in zip(main_cluster, cos_sim_cluster):
-                original_idx = valid_index[idx_v]
-                record_cosine_score[original_idx] = cosine
-            item["cosine_scores"] = record_cosine_score
-    os.makedirs(os.path.dirname(args.output_path_scored_file), exist_ok=True)
-    with jsonlines.open(args.output_path_scored_file, "w") as fw:
-        for item in sentence_pairs:
+            embs = item["embeddings"]
+            center_feature = np.stack(embs).mean(axis=0) / np.linalg.norm(np.stack(embs).mean(axis=0))
+            cos_sim_cluster = [np.dot(center_feature, f)/ (np.linalg.norm(center_feature) * np.linalg.norm(f)) for f in embs]
+            cos_sim_cluster = np.array(cos_sim_cluster)
+            chosen_id = np.argmax(cos_sim_cluster)
+            chosen_id = int(chosen_id)
+            original_chosen_id = valid_index[chosen_id]
+            rej_id = np.argmin(cos_sim_cluster)
+            rej_id = int(rej_id)
+            original_rej_id = valid_index[rej_id]
             fw.write({
-                "original_prompt": item["original_prompt"],
-                "original_candidates": item["original_candidates"],
-                "valid_index": item["valid_index"],
-                "cosine_scores": item["cosine_scores"],
+                "chosen": item["original_candidates"][original_chosen_id],
+                "rejected": item["original_candidates"][original_rej_id],
+                "prompt": item["original_prompt"]
             })
-    if args.output_path_dpo_file is not None and len(args.output_path_dpo_file) > 0:
-        os.makedirs(os.path.dirname(args.output_path_dpo_file), exist_ok=True)
-        with jsonlines.open(args.output_path_dpo_file, "w") as fw:
-            for item in sentence_pairs:
-                if all(s is None for s in item["cosine_scores"]):
-                    continue
-                scores = [s if s is not None else -1.1 for s in item["cosine_scores"]]
-                max_score_id = np.argmax(scores)
-                scores = [s if s is not None else 1.1 for s in item["cosine_scores"]]
-                min_score_id = np.argmin(scores)
-                fw.write({
-                    "chosen": item["original_candidates"][max_score_id],
-                    "rejected": item["original_candidates"][min_score_id],
-                    "prompt": item["original_prompt"]
-                })
 
 
 if __name__ == "__main__":

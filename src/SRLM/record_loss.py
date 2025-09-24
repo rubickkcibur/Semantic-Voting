@@ -92,6 +92,7 @@ def make_contrast_pair(obj, use_format_filter=False):
     invalid_id = [i for i, output in enumerate(outputs) if extract_pred(output) is None]
     invalid_id = set(invalid_id)
     if use_format_filter:
+        print("format filtering enabled!")
         scores_for_max = [-1e15 if i in invalid_id else s for i, s in enumerate(scores)]
         max_score = max(scores_for_max)
         chosen_id = scores_for_max.index(max_score)

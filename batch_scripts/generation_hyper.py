@@ -93,13 +93,9 @@ def define_system_vars():
 
 if __name__ == "__main__":
     # Example usage
-    for number in [16, 32, 64, 128]:
-        for temp in [0.3, 0.7, 1.0, 1.5, 2.0]:
-            if number == 64 and temp == 0.7:
-                continue
-            if number == 16 and temp in [0.3, 0.7, 1.0]:
-                continue
-            for base_model_name in ["Llama-3.2-1B-Instruct", "Llama-3.2-3B-Instruct", "Qwen2.5-1.5B-Instruct", "Qwen2.5-3B-Instruct"]:
+    for number in [64]:
+        for temp in [0.3]:
+            for base_model_name in ["Qwen2.5-3B-Instruct"]:
                 for dataset_name in ["wmt24pp_de"]:
                     try:
                         define_system_vars()

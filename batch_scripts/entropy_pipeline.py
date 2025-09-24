@@ -11,7 +11,7 @@ def compute_entropy_scores(base_model_name, dataset_name):
         "--model_name_or_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--tokenizer_path", "/mnt/{}/rubickjiang/proj_storage/huggingface_models/{}".format(os.environ["MACLAB_NAS_NAME"], base_model_name),
         "--mode", "chat",
-        "--candidates_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
+        "--candidates_path", "/mnt/{}/rubickjiang/codes/open-r1/data/main_results/candidates/{}/{}_output_64.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--scored_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_entropy_scored.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--dpo_path", "/mnt/{}/rubickjiang/codes/open-r1/data/retry_candidates/{}/{}_entropy_dpo.jsonl".format(os.environ["MACLAB_NAS_NAME"], base_model_name, dataset_name),
         "--few_shot_cot", "False",
@@ -77,24 +77,37 @@ def define_system_vars():
 
 if __name__ == "__main__":
     # Example usage
-    pairs = [
-        # ("Qwen2.5-1.5B-Instruct", "wmt24pp_fr"),
-        # ("Qwen2.5-1.5B-Instruct", "wmt24pp_ru"),
-        ("Qwen2.5-1.5B-Instruct", "wmt24pp_es"),
-        ("Llama-3.2-3B-Instruct", "pubmed_summary"),
-    ]
-    for base_model_name, dataset_name in pairs:
-        try:
-            define_system_vars()
-            # generate_sr_candidates(base_model_name, dataset_name)
-            compute_entropy_scores(base_model_name, dataset_name)
-            train(base_model_name, dataset_name)
-            evaluate(
-                base_model_name, 
-                dataset_name, 
-                max_new_tokens=800 if (base_model_name == "Qwen2.5-7B-Instruct" and "wmt" in dataset_name) else 512
-            )
-        except Exception as e:
-            print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")
-            quit()
-    
+    for base_model_name in [
+        # "Llama-3.2-1B-Instruct",
+        # "Llama-3.2-3B-Instruct",
+        # "Meta-Llama-3-8B-Instruct",
+        # "Qwen2.5-1.5B-Instruct",
+        # "Qwen2.5-3B-Instruct",
+        "Qwen2.5-7B-Instruct",
+    ]:
+        for dataset_name in [
+            # "wmt24pp_de",
+            "wmt24pp_fr",
+            "wmt24pp_ru",
+            "wmt24pp_es",
+            "cnn_dailymail",
+            "pubmed_summary",
+        ]:
+            if base_model_name == "Qwen2.5-3B-Instruct" and dataset_name in ["cnn_dailymail", "pubmed_summary"]:
+                continue
+            if base_model_name == "Qwen2.5-1.5B-Instruct" and dataset_name in ["pubmed_summary"]:
+                continue
+            try:
+                define_system_vars()
+                # generate_sr_candidates(base_model_name, dataset_name)
+                compute_entropy_scores(base_model_name, dataset_name)
+                train(base_model_name, dataset_name)
+                evaluate(
+                    base_model_name, 
+                    dataset_name, 
+                    max_new_tokens=800 if (base_model_name == "Qwen2.5-7B-Instruct" and "wmt" in dataset_name) else 512
+                )
+            except Exception as e:
+                print(f"An error occurred while processing {base_model_name} on {dataset_name}: {e}")
+                quit()
+        

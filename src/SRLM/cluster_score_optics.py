@@ -8,8 +8,8 @@ import numpy as np
 import os
 import random
 from sklearn.metrics.pairwise import cosine_similarity
-import hdbscan
 import argparse
+from sklearn.cluster import OPTICS
 
 MACLAB_NAS_NAME = "maclabcv2"
 GLOBAL_SEED = 42
@@ -28,8 +28,6 @@ def extract_sentence_pairs(path):
         results = re.findall(pattern, txt)
         if results:
             ret = results[0]
-            # ret = ret.replace("\"", "")
-            # ret = ret.replace("\'", "")
             ret = ret.strip()
             return ret
         else:
@@ -56,8 +54,6 @@ def extract_sentence_pairs(path):
             return prompt
         elif "lima" in path:
             return txt.strip()
-        elif "alpaca_eval" in path:
-            return txt.strip()
         else:
             assert "'\nPlease think about how to translate step by step." in txt
             prompt = txt.split("'\nPlease think about how to translate step by step.")[0].strip()
@@ -70,7 +66,7 @@ def extract_sentence_pairs(path):
         for item in f:
             prompt = extract_prompt(item["prompt"], path)
             candidates = item["outputs"]
-            if "lima" in path or "alpaca_eval" in path:
+            if "lima" in path:
                 preds = candidates
             else:
                 preds = [extract_pred(candidate) for candidate in candidates]
@@ -126,16 +122,8 @@ def compute_cluster_scores(sentence_pairs, args):
                 item["cosine_scores"] = [None] * len(item["extracted_candidates"])
                 continue
             emb = item["embeddings"]
-            sim_matrix = cosine_similarity(emb)
-            clusteror = hdbscan.HDBSCAN(
-                metric='precomputed', 
-                min_cluster_size = args.min_cluster_size, 
-                min_samples = args.min_samples, 
-                provide_probabilities = True, 
-                allow_single_cluster = True,
-                # prediction_data = True
-            )
-            labels = clusteror.fit_predict(sim_matrix)
+            clustering = OPTICS(min_samples=args.min_cluster_size, metric="cosine").fit(emb)
+            labels = clustering.labels_
             clusters = dict()
             for label_idx, c in enumerate(labels):
                 if c < 0:

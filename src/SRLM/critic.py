@@ -151,6 +151,7 @@ def start_generation(args, n_workers = 8):
             "chosen": chosen,
             "rejected": rejected,
         }
+    
     with jsonlines.open(args.dpo_path, "w") as fw:
         for obj in all_objs:
             pair = make_contrast_pair(obj)
@@ -160,6 +161,15 @@ def start_generation(args, n_workers = 8):
 
 
 if __name__ == "__main__":
+    def str2bool(v):
+        if isinstance(v, bool):
+            return v
+        if v.lower() in ('true'):
+            return True
+        elif v.lower() in ('false'):
+            return False
+        else:
+            raise argparse.ArgumentTypeError(f"Invalid boolean value: {v}")
     import argparse
     parser = argparse.ArgumentParser(description="The arguments for generation with vLLM on a HuggingFace dataset")
     parser.add_argument(
@@ -242,25 +252,12 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--use_format_filter",
-        type=bool,
+        type=str2bool,
         default=False,
         help="Whether to use format filter (default: False)",
     )
 
     args = parser.parse_args()
-
-    # seed = int(args.seed)
-    # os.environ["PYTHONHASHSEED"] = str(seed)
-    # torch.cuda.manual_seed(seed)
-    # os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
-    # os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
-    # torch.use_deterministic_algorithms(True)
-    # #Enable CUDNN deterministic mode
-    # torch.backends.cudnn.deterministic = True
-    # torch.backends.cudnn.benchmark = False
-    # torch.manual_seed(seed)
-    # torch.cuda.manual_seed_all(seed)
-    # np.random.seed(seed)
     random.seed(time.time())
 
     start_generation(args, n_workers = args.n_workers)

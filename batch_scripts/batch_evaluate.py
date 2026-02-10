@@ -1,10 +1,13 @@
 import os
 import subprocess
 
+accelerate_config_path = "" # customize your accelerate config path here
+model_dir = "" # customize your model directory
+
 def evaluate(model_name_or_path, dataset_name, tokenizer_path=None, max_new_tokens=512):
     # Define the command to run the evaluation script
     command = [
-        "accelerate", "launch", "--config_file", "/mnt/{}/rubickjiang/codes/accelerate_config/config_acc.yaml".format(os.environ["MACLAB_NAS_NAME"]),
+        "accelerate", "launch", "--config_file", accelerate_config_path,
         "src/open_r1/evaluation.py",
         "--model_name_or_path", model_name_or_path,
         "--tokenizer_path", tokenizer_path if tokenizer_path else model_name_or_path,
@@ -22,7 +25,6 @@ def evaluate(model_name_or_path, dataset_name, tokenizer_path=None, max_new_toke
     subprocess.run(command, check=True)
 
 def define_system_vars():
-    os.environ["MACLAB_NAS_NAME"] = "maclabcv2"
     os.environ["TORCH_USE_CUDA_DSA"] = "1"
     os.environ["CUDA_DEVICE_MAX_CONNECTIONS"] = "1"
     os.environ["SEED"] = "42"
@@ -39,11 +41,17 @@ if __name__ == "__main__":
         "Qwen2.5-3B-Instruct",
         "Qwen2.5-7B-Instruct",
     ]:
-        evaluate(
-            model_name_or_path="/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/{}".format(model),
-            tokenizer_path="/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/{}".format(model),
-            dataset_name="alpaca_eval",
-            max_new_tokens=512
-        )
+        for dataset in [
+            "wmt24pp_de",
+            "wmt24pp_fr",
+            "wmt24pp_ru",
+            "wmt24pp_es"
+        ]:
+            evaluate(
+                model_name_or_path="{}/{}".format(model_dir, model),
+                tokenizer_path="{}/{}".format(model_dir, model),
+                dataset_name=dataset,
+                max_new_tokens=800
+            )
     
     

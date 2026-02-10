@@ -7,9 +7,7 @@ from external_lib import mt5_model
 import torch
 import tqdm
 import logging
-MACLAB_NAS_NAME = os.environ["MACLAB_NAS_NAME"]
-
-DATA_PATH="/mnt/{}/rubickjiang/public_dataset/wmt19".format(MACLAB_NAS_NAME)
+DATA_PATH="wmt19" # customize to local data path
 COT_EXAMPLES_chat = []
 SYSTEM_PROMPT = r"You are a translation assistant who carefully and thoughtfully translates Russian sentences into English, ensuring that the translated sentences fluent and accurately convey the original meaning. Place your translation answer in \boxed{}. For axmaple, if the answer is 'Hello World', you should output \boxed{Hello World}.\n"
 
@@ -50,7 +48,7 @@ def load_data(cot: bool = False):
 
 
 def reward_model_score(pred_txt, kwargs_list):
-    model = mt5_model.MT5ForRegression.from_pretrained("/mnt/{}/rubickjiang/proj_storage/huggingface_models/metricx-24-hybrid-large-v2p6-bfloat16".format(MACLAB_NAS_NAME), torch_dtype=torch.bfloat16)
+    model = mt5_model.MT5ForRegression.from_pretrained("metricx-24-hybrid-large-v2p6-bfloat16", torch_dtype=torch.bfloat16)
     model.to("cuda:0")
     model.eval()
     tokenizer = transformers.AutoTokenizer.from_pretrained("google/mt5-xl", trust_remote_code=True)

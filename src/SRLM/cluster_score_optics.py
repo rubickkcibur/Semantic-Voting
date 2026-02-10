@@ -11,7 +11,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import argparse
 from sklearn.cluster import OPTICS
 
-MACLAB_NAS_NAME = "maclabcv2"
 GLOBAL_SEED = 42
 
 def is_valid_answer(txt):
@@ -81,11 +80,11 @@ def extract_sentence_pairs(path):
 def compute_sentence_embeddings(sentence_pairs):
     device = "cuda:0"
     tokenizer = transformers.AutoTokenizer.from_pretrained(
-        "/mnt/{}/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased".format(MACLAB_NAS_NAME),
+        "unsup-simcse-bert-base-uncased",
         padding_side="left",
     )
     model = transformers.AutoModel.from_pretrained(
-        "/mnt/{}/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased".format(MACLAB_NAS_NAME),
+        "unsup-simcse-bert-base-uncased",
         torch_dtype=torch.float32
     ).to(device)
     model.eval()

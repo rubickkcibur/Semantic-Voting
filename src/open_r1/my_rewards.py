@@ -55,14 +55,7 @@ def accuracy_reward(prompts, completions: list[str], emb_tokenizer, emb_model, *
 
 def get_cluster_reward_func(emb_tokenizer, emb_model):
     def cluster_score(prompts, completions: list[str], accelerator, **kwargs) -> list[Optional[float]]:
-        # emb_tokenizer = transformers.AutoTokenizer.from_pretrained(
-        #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased",
-        #     padding_side="left",
-        # )
-        # local_emb_model = transformers.AutoModel.from_pretrained(
-        #     "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased",
-        #     torch_dtype=torch.float32
-        # )
+
         device = accelerator.device
         local_emb_model = emb_model.to(device)
         local_emb_model.eval()
@@ -160,11 +153,11 @@ def entropy_reward(prompts, completions: list[str], **kwargs) -> list[Optional[f
 
 def get_reward_funcs(script_args) -> list[Callable]:
     emb_tokenizer = transformers.AutoTokenizer.from_pretrained(
-        "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased",
+        "unsup-simcse-bert-base-uncased",
         padding_side="left",
     )
     emb_model = transformers.AutoModel.from_pretrained(
-        "/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/unsup-simcse-bert-base-uncased",
+        "unsup-simcse-bert-base-uncased",
         torch_dtype=torch.float32
     )
     REWARD_FUNCS_REGISTRY = {

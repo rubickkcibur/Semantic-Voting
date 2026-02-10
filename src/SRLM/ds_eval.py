@@ -34,9 +34,9 @@ for model in [
     "Qwen2.5-3B-Instruct",
     "Qwen2.5-7B-Instruct",
 ]:
-    self_alpaca = "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/alpaca_eval/models/{}-DPO-alpaca_eval-self/debug_alpaca_eval.jsonl".format(model)
-    SV_alpaca = "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/alpaca_eval/models/{}-DPO-alpaca_eval-5-2/debug_alpaca_eval.jsonl".format(model)
-    results = "/mnt/maclabcv2/rubickjiang/codes/open-r1/data/alpaca_output/SV_self/{}/debug_alpaca-ABT.jsonl".format(model)
+    self_alpaca = "data/alpaca_eval/models/{}-DPO-alpaca_eval-self/debug_alpaca_eval.jsonl".format(model)
+    SV_alpaca = "data/alpaca_eval/models/{}-DPO-alpaca_eval-5-2/debug_alpaca_eval.jsonl".format(model)
+    results = "data/alpaca_output/SV_self/{}/debug_alpaca-ABT.jsonl".format(model)
     os.makedirs(os.path.dirname(results), exist_ok=True)
     prompts = []
     A_cnt = 0

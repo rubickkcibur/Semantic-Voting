@@ -7,9 +7,7 @@ from external_lib import mt5_model
 import torch
 import tqdm
 import logging
-MACLAB_NAS_NAME = os.environ["MACLAB_NAS_NAME"]
-
-DATA_PATH="/mnt/{}/rubickjiang/public_dataset/wmt19".format(MACLAB_NAS_NAME)
+DATA_PATH="wmt19" # customize to local data path
 COT_EXAMPLES_chat = [
     # dict(role="user", content="The Chinese sentence is: '我裤子后面怎么了?'\nPlease think carefully about how to translate.\n"),
     # dict(role="assistant", content="\\boxed{What's wrong with the back of my pants?}\n"),
@@ -57,7 +55,7 @@ def load_data(cot: bool = False):
 
 
 def reward_model_score(pred_txt, kwargs_list):
-    model = mt5_model.MT5ForRegression.from_pretrained("/mnt/{}/rubickjiang/proj_storage/huggingface_models/metricx-24-hybrid-large-v2p6-bfloat16".format(MACLAB_NAS_NAME), torch_dtype=torch.bfloat16)
+    model = mt5_model.MT5ForRegression.from_pretrained("metricx-24-hybrid-large-v2p6-bfloat16", torch_dtype=torch.bfloat16)
     model.to("cuda:0")
     model.eval()
     tokenizer = transformers.AutoTokenizer.from_pretrained("google/mt5-xl", trust_remote_code=True)

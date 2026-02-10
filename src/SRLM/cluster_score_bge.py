@@ -11,7 +11,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import hdbscan
 import argparse
 
-MACLAB_NAS_NAME = "maclabcv2"
 GLOBAL_SEED = 42
 
 def is_valid_answer(txt):
@@ -77,8 +76,8 @@ def extract_sentence_pairs(path):
 
 def compute_sentence_embeddings(sentence_pairs):
     device = "cuda:0"
-    tokenizer = transformers.AutoTokenizer.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/bge-base-en-v1.5')
-    model = transformers.AutoModel.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/bge-base-en-v1.5').to(device)
+    tokenizer = transformers.AutoTokenizer.from_pretrained('bge-base-en-v1.5')
+    model = transformers.AutoModel.from_pretrained('bge-base-en-v1.5').to(device)
     model.eval()
     with tqdm.tqdm(total=len(sentence_pairs), desc="Computing sentence embeddings") as pbar:
         for item in sentence_pairs:

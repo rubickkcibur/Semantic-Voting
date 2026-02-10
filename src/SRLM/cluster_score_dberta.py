@@ -11,7 +11,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import hdbscan
 import argparse
 
-MACLAB_NAS_NAME = "maclabcv2"
 GLOBAL_SEED = 42
 
 def is_valid_answer(txt):
@@ -77,8 +76,8 @@ def extract_sentence_pairs(path):
 
 def compute_sentence_embeddings(sentence_pairs):
     device = "cuda:0"
-    tokenizer = transformers.AutoTokenizer.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/deberta-sentence-transformer')
-    model = transformers.AutoModel.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/deberta-sentence-transformer').to(device)
+    tokenizer = transformers.AutoTokenizer.from_pretrained('deberta-sentence-transformer')
+    model = transformers.AutoModel.from_pretrained('deberta-sentence-transformer').to(device)
     model.eval()
     def mean_pooling(model_output, attention_mask):
         token_embeddings = model_output[0] #First element of model_output contains all token embeddings

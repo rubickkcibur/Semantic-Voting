@@ -161,6 +161,7 @@ if __name__ == "__main__":
     torch.cuda.manual_seed(seed)
     os.environ["CUDA_LAUNCH_BLOCKING"] = "1"
     os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":16:8"
+
     torch.use_deterministic_algorithms(True)
     #Enable CUDNN deterministic mode
     torch.backends.cudnn.deterministic = True

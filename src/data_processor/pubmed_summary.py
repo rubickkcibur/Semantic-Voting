@@ -8,9 +8,8 @@ import torch
 import tqdm
 import logging
 from bleurt_pytorch import BleurtConfig, BleurtForSequenceClassification, BleurtTokenizer
-MACLAB_NAS_NAME = os.environ["MACLAB_NAS_NAME"]
 
-DATA_PATH="/mnt/{}/rubickjiang/public_dataset/pubmed-abstract-summary".format(MACLAB_NAS_NAME)
+DATA_PATH="pubmed-abstract-summary" # customize to local data path
 COT_EXAMPLES_chat = []
 SYSTEM_PROMPT = r"You are a skilled summarization assistant. Given a medical article, provide a concise, informative summary in one or two sentences, totaling around 50 words. Please provide your summary in plain text and place it inside \boxed{}. For example, if your summary is \"Hello World\", you should output: \boxed{Hello World}"
 
@@ -53,8 +52,8 @@ def load_data(cot: bool = False):
 
 
 def reward_model_score(pred_txt, kwargs_list):
-    model = BleurtForSequenceClassification.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/BLEURT-20')
-    tokenizer = BleurtTokenizer.from_pretrained('/mnt/maclabcv2/rubickjiang/proj_storage/huggingface_models/BLEURT-20')
+    model = BleurtForSequenceClassification.from_pretrained('BLEURT-20')
+    tokenizer = BleurtTokenizer.from_pretrained('BLEURT-20')
     model.to("cuda:0")
     model.eval()
     batch_size = 16

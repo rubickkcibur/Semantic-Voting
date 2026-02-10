@@ -7,9 +7,8 @@ import torch
 import tqdm
 import logging
 from bleurt_pytorch import BleurtConfig, BleurtForSequenceClassification, BleurtTokenizer
-MACLAB_NAS_NAME = os.environ["MACLAB_NAS_NAME"]
 
-DATA_PATH="/mnt/{}/rubickjiang/public_dataset/alpaca_eval.jsonl".format(MACLAB_NAS_NAME)
+DATA_PATH="alpaca_eval" # customize to local data path
 COT_EXAMPLES_chat = []
 
 COT_EXAMPLES_base = [

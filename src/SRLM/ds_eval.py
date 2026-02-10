@@ -24,7 +24,7 @@ system_prompt = "Review an user's prompts and two candidate responses.\nPick the
 
 compare_pairs = "<User_prompt>\n{}\n</User_prompt>\n<Response-A>\n{}\n</Response-A>\n<Response-B>\n{}\n</Response-B>"
 
-client = OpenAI(api_key="sk-79bfe079126242a683a6a54e40a6e857", base_url="https://api.deepseek.com")
+client = OpenAI(api_key="", base_url="https://api.deepseek.com")
 
 for model in [
     "Llama-3.2-1B-Instruct",

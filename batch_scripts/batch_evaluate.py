@@ -2,7 +2,6 @@ import os
 import subprocess
 
 accelerate_config_path = "" # customize your accelerate config path here
-model_dir = "" # customize your model directory
 
 def evaluate(model_name_or_path, dataset_name, tokenizer_path=None, max_new_tokens=512):
     # Define the command to run the evaluation script
@@ -32,26 +31,14 @@ def define_system_vars():
 
 
 if __name__ == "__main__":
+    model_name = "" # customize your testing model name here
+    dataset = "wmt24pp_de" # customize your testing dataset name here
     define_system_vars()
-    for model in [
-        "Llama-3.2-1B-Instruct",
-        "Llama-3.2-3B-Instruct",
-        "Meta-Llama-3-8B-Instruct",
-        "Qwen2.5-1.5B-Instruct",
-        "Qwen2.5-3B-Instruct",
-        "Qwen2.5-7B-Instruct",
-    ]:
-        for dataset in [
-            "wmt24pp_de",
-            "wmt24pp_fr",
-            "wmt24pp_ru",
-            "wmt24pp_es"
-        ]:
-            evaluate(
-                model_name_or_path="{}/{}".format(model_dir, model),
-                tokenizer_path="{}/{}".format(model_dir, model),
-                dataset_name=dataset,
-                max_new_tokens=800
-            )
+    evaluate(
+        model_name_or_path=model_name,
+        tokenizer_path=model_name,
+        dataset_name=dataset,
+        max_new_tokens=800
+    )
     
     

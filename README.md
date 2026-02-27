@@ -4,6 +4,8 @@ This is the official implementation for ICLR 2026 paper *"Semantic Voting: A Sel
 
 Codes are based on the [**open-r1** project](https://github.com/huggingface/open-r1). We would like to express our gratitude to their contribution.
 
+**Note:** If you only want deploy semantic voting as a reward service for your own training project, Please see the `voting_docker_service` dir, we have a quick deployment there.
+
 ### Environment Setup
 Please follow the instructions from **open-r1**.
 

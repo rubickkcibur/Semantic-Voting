@@ -27,7 +27,7 @@ tomli==2.0.1
 torchaudio==2.8.0+cu128
 torchelastic==0.2.2
 torchvision==0.23.0+cu128
-transformers==4.57.5
+transformers==5.2.0
 typer-slim==0.24.0
 types-dataclasses==0.6.6
 uvicorn==0.41.0

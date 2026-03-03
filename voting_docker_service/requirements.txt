@@ -17,7 +17,7 @@ importlib-metadata==8.0.0
 ipython==9.4.0
 jaraco.collections==5.1.0
 lief==0.16.6
-lintrunner==0.12.7
+lintrunner==0.13.0
 ninja==1.11.1.4
 optree==0.17.0
 pickleshare==0.7.5
